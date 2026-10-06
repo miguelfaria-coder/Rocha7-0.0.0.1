@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Phenomenal</title>
+    <!-- CSS Existentes -->
+    <link rel="stylesheet" href="css/reset.css">
+    <link rel="stylesheet" href="css/variables.css">
+    <link rel="stylesheet" href="css/global.css">
+    <!-- CSS Específico do Login -->
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <!-- Lado Esquerdo (Branding/Apresentação) -->
+        <div class="login-brand">
+            <div class="brand-content">
+                <a href="index.html" class="logo">
+                    <span class="logo-highlight">Phenomenal</span>.
+                </a>
+                <h1>Bem-vindo de volta!</h1>
+                <p>Acesse o painel para gerenciar seus projetos de forma incrível.</p>
+            </div>
+        </div>
+        
+        <!-- Lado Direito (Formulário) -->
+        <div class="login-form-wrapper">
+            <div class="form-header">
+                <h2>Login</h2>
+                <p>Por favor, insira suas credenciais abaixo.</p>
+            </div>
+            
+            <!-- O action aponta para o PHP, mas o envio é via AJAX no login.js -->
+            <form id="loginForm" action="backend/processa_login.php" method="POST">
+                <div class="input-group">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" name="email" placeholder="exemplo@email.com">
+                    <span class="error-message" id="email-error"></span>
+                </div>
+                
+                <div class="input-group">
+                    <label for="senha">Senha</label>
+                    <input type="password" id="senha" name="senha" placeholder="••••••••">
+                    <span class="error-message" id="senha-error"></span>
+                </div>
+                
+                <div class="form-actions-row">
+                    <label class="remember-me">
+                        <input type="checkbox" name="lembrar"> Lembrar-me
+                    </label>
+                    <a href="#" class="forgot-password">Esqueci a senha</a>
+                </div>
+                
+                <button type="submit" class="btn-primary btn-login">Entrar no Sistema</button>
+            </form>
+            
+            <div class="form-footer">
+                <p>Não tem uma conta? <a href="#" id="toggleCadastro">Cadastre-se</a></p>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="module" src="js/supabase.js"></script>
+    <script type="module" src="js/login.js"></script>
+</body>
+</html>

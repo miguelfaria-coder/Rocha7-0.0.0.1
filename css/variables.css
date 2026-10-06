@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
+
+:root {
+  /* Cores Base do Modelo Phenomenal (design_site.jpeg) */
+  --cor-primaria: #f35e0e;
+  --cor-primaria-hover: #d94e00;
+  --cor-primaria-clara: #fff2ea;
+  --cor-primaria-sombra: rgba(243, 94, 14, 0.25);
+  
+  --cor-escura: #222222;
+  --cor-escura-suave: #2a2a2a;
+  --cor-escura-painel: #1f1f1f;
+  
+  --cor-fundo: #ffffff;
+  --cor-superficie: #f8f9fa;
+  --cor-superficie-alt: #f1f3f5;
+  --cor-card: #ffffff;
+  
+  --cor-texto: #333333;
+  --cor-texto-sec: #666666;
+  --cor-texto-mutado: #999999;
+  --cor-texto-claro: #ffffff;
+  
+  --cor-destaque: #f35e0e;
+  --cor-sucesso: #10b981;
+  --cor-perigo: #ef4444;
+  --cor-alerta: #f59e0b;
+  
+  --cor-borda: #e5e5e5;
+  --cor-borda-escura: #333333;
+  --cor-borda-foco: #f35e0e;
+
+  /* ========================================
+     TIPOGRAFIA — extraída do hero
+     font-family: Outfit  |  weight: 800
+     letter-spacing: -0.03em  |  line-height: 1.08
+     ======================================== */
+  --fonte-titulo: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --fonte-corpo: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  
+  --tam-xs: 0.75rem;   /* 12px */
+  --tam-sm: 0.875rem;  /* 14px */
+  --tam-base: 1rem;    /* 16px */
+  --tam-lg: 1.125rem;  /* 18px */
+  --tam-xl: 1.25rem;   /* 20px */
+  --tam-2xl: 1.5rem;   /* 24px */
+  --tam-3xl: 1.875rem; /* 30px */
+  --tam-4xl: 2.25rem;  /* 36px */
+  --tam-5xl: 3rem;     /* 48px */
+
+  /* Títulos hero-level — usados em .titulo-secao */
+  --titulo-secao-size: clamp(2.5rem, 5vw, 4.5rem);
+  --titulo-secao-weight: 800;
+  --titulo-secao-lh: 1.08;
+  --titulo-secao-ls: -0.03em;
+
+  /* Subtítulos colados ao título */
+  --subtitulo-size: clamp(1.1rem, 1.6vw, 1.35rem);
+
+  /* Espaçamentos */
+  --esp-4: 4px;
+  --esp-8: 8px;
+  --esp-12: 12px;
+  --esp-16: 16px;
+  --esp-20: 20px;
+  --esp-24: 24px;
+  --esp-32: 32px;
+  --esp-40: 40px;
+  --esp-48: 48px;
+  --esp-64: 64px;
+
+  /* Espaçamento vertical de seção — hero-level */
+  --secao-py: clamp(64px, 8vw, 120px);
+
+  /* Bordas & Arredondamento */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* Sombras */
+  --sombra-sm: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --sombra-md: 0 4px 12px rgba(0,0,0,0.08);
+  --sombra-lg: 0 10px 25px rgba(0,0,0,0.12);
+  --sombra-orange: 0 6px 16px rgba(243, 94, 14, 0.35);
+
+  /* Transições & Layout */
+  --trans-fast: 0.15s ease;
+  --trans-normal: 0.25s ease;
+  --trans-slow: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Container largo (hero-level) */
+  --largura-max: 1500px;
+  --container-width: 92%;
+  --header-height: 80px;
+}

@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pacdora Studio 3D — Football Jersey with Zipper Polo Shirt Mockup</title>
+  <meta name="description" content="Editor 3D de Mockup de Camisa Polo de Futebol com Zíper no estilo Pacdora. Personalize cores, estampas e tecidos em tempo real.">
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Core Stylesheets -->
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/editor.css">
+
+  <!-- Three.js Standalone Libraries (Works 100% on file:// and http://) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  
+  <!-- Data & Component Fallbacks -->
+  <script src="js/editor/tshirtModelData.js"></script>
+  <script src="js/data/products.js" type="module"></script>
+  <script src="js/cart.js" type="module"></script>
+  <script src="js/components/header.js" type="module"></script>
+  <script src="js/components/footer.js" type="module"></script>
+
+  <style>
+    :root {
+      --pacdora-bg: #121216;
+      --pacdora-panel-bg: #18181f;
+      --pacdora-card-bg: #22222b;
+      --pacdora-border: #2d2d3a;
+      --pacdora-accent: #f35e0e;
+      --pacdora-text: #f8fafc;
+      --pacdora-text-muted: #94a3b8;
+    }
+
+    body {
+      background-color: var(--pacdora-bg);
+      color: var(--pacdora-text);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    .pacdora-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 24px;
+      background: var(--pacdora-panel-bg);
+      border-bottom: 1px solid var(--pacdora-border);
+    }
+
+    .pacdora-title-badge {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .pacdora-title-badge h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--pacdora-text);
+    }
+
+    .pacdora-badge {
+      background: rgba(243, 94, 14, 0.15);
+      color: var(--pacdora-accent);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid rgba(243, 94, 14, 0.3);
+    }
+
+    .pacdora-mode-switch {
+      display: flex;
+      background: var(--pacdora-card-bg);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--pacdora-border);
+    }
+
+    .pacdora-mode-btn {
+      padding: 6px 16px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--pacdora-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .pacdora-mode-btn.active {
+      background: var(--pacdora-accent);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(243, 94, 14, 0.4);
+    }
+
+    .pacdora-layout {
+      display: grid;
+      grid-template-columns: 360px 1fr 300px;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    .pacdora-sidebar {
+      background: var(--pacdora-panel-bg);
+      border-right: 1px solid var(--pacdora-border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .pacdora-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--pacdora-border);
+    }
+
+    .pacdora-tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--pacdora-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .pacdora-tab-btn.active {
+      color: var(--pacdora-accent);
+      border-bottom-color: var(--pacdora-accent);
+      background: rgba(243, 94, 14, 0.05);
+    }
+
+    .pacdora-tab-content {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .pacdora-part-picker {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .pacdora-part-card {
+      background: var(--pacdora-card-bg);
+      border: 1px solid var(--pacdora-border);
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: all 0.2s ease;
+    }
+
+    .pacdora-part-card.active {
+      border-color: var(--pacdora-accent);
+      background: rgba(243, 94, 14, 0.1);
+    }
+
+    .pacdora-viewport-wrapper {
+      position: relative;
+      background: radial-gradient(circle at center, #242432 0%, #0d0d12 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .pacdora-controls-overlay {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      background: rgba(24, 24, 31, 0.85);
+      backdrop-filter: blur(12px);
+      padding: 6px 12px;
+      border-radius: 30px;
+      border: 1px solid var(--pacdora-border);
+      z-index: 10;
+    }
+
+    .pacdora-ctrl-btn {
+      background: transparent;
+      border: none;
+      color: #ffffff;
+      padding: 8px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    .pacdora-ctrl-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .pacdora-right-panel {
+      background: var(--pacdora-panel-bg);
+      border-left: 1px solid var(--pacdora-border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .pacdora-slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .pacdora-slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--pacdora-text-muted);
+    }
+
+    .pacdora-range {
+      width: 100%;
+      accent-color: var(--pacdora-accent);
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- PACDORA TOP BAR -->
+  <div class="pacdora-topbar">
+    <div class="pacdora-title-badge">
+      <a href="index.html" style="text-decoration:none; color:inherit; font-weight:800; font-size:18px;">
+        Rocha7<span style="color:var(--pacdora-accent);">.</span>
+      </a>
+      <span style="color:var(--pacdora-border);">|</span>
+      <h1>Football Jersey with Zipper Polo Shirt Mockup</h1>
+      <span class="pacdora-badge">PRO 3D STUDIO</span>
+    </div>
+
+    <!-- Mode Switcher (3D View vs 2D Flat Pattern) -->
+    <div class="pacdora-mode-switch">
+      <button class="pacdora-mode-btn active" id="btn-mode-3d">
+        🎥 Viewport 3D
+      </button>
+      <button class="pacdora-mode-btn" id="btn-mode-2d">
+        📐 Molde Plano 2D
+      </button>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+      <button id="btn-export-hd" class="btn btn-sm btn-primario" style="border-radius:20px; padding:8px 18px;">
+        📸 Exportar 3D HD (PNG)
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN STUDIO LAYOUT -->
+  <div class="pacdora-layout">
+
+    <!-- LEFT PANEL — TOOLS & SECTIONS -->
+    <div class="pacdora-sidebar">
+      <div class="pacdora-tabs">
+        <button class="pacdora-tab-btn active" data-tab="colors">
+          <span>🎨</span>
+          <span>Cores Partes</span>
+        </button>
+        <button class="pacdora-tab-btn" data-tab="graphics">
+          <span>🖼️</span>
+          <span>Estampa 2D</span>
+        </button>
+        <button class="pacdora-tab-btn" data-tab="fabric">
+          <span>🧵</span>
+          <span>Tecido</span>
+        </button>
+        <button class="pacdora-tab-btn" data-tab="pieces">
+          <span>📐</span>
+          <span>Peças Molde</span>
+        </button>
+      </div>
+
+      <div class="pacdora-tab-content" id="tab-content-colors">
+        <div>
+          <label class="form-label" style="color:var(--pacdora-text);">Personalizar Cores por Parte</label>
+          <span class="texto-xs" style="color:var(--pacdora-text-muted);">Clique na parte para alterar a cor no 3D:</span>
+        </div>
+
+        <div class="pacdora-part-picker">
+          <div class="pacdora-part-card active" data-part="body" id="part-card-body">
+            <span style="font-size:12px; font-weight:700;">Corpo (Frente/Costas)</span>
+            <input type="color" id="color-part-body" value="#ffffff" style="border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;">
+          </div>
+          <div class="pacdora-part-card" data-part="sleeves" id="part-card-sleeves">
+            <span style="font-size:12px; font-weight:700;">Mangas (Esq / Dir)</span>
+            <input type="color" id="color-part-sleeves" value="#111111" style="border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;">
+          </div>
+          <div class="pacdora-part-card" data-part="collar" id="part-card-collar">
+            <span style="font-size:12px; font-weight:700;">Gola Polo</span>
+            <input type="color" id="color-part-collar" value="#f35e0e" style="border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;">
+          </div>
+          <div class="pacdora-part-card" data-part="zipper" id="part-card-zipper">
+            <span style="font-size:12px; font-weight:700;">Zíper Esportivo</span>
+            <input type="color" id="color-part-zipper" value="#cccccc" style="border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;">
+          </div>
+        </div>
+
+        <!-- Paleta Rápida -->
+        <div>
+          <label class="form-label" style="font-size:12px; color:var(--pacdora-text-muted);">Paleta Recomendada Rocha7</label>
+          <div class="color-options" id="pacdora-swatches-container" style="margin-top:8px;">
+            <div class="color-option selecionado" data-cor="#ffffff" style="background:#ffffff;"></div>
+            <div class="color-option" data-cor="#111111" style="background:#111111;"></div>
+            <div class="color-option" data-cor="#0d233a" style="background:#0d233a;"></div>
+            <div class="color-option" data-cor="#f35e0e" style="background:#f35e0e;"></div>
+            <div class="color-option" data-cor="#c0392b" style="background:#c0392b;"></div>
+            <div class="color-option" data-cor="#27ae60" style="background:#27ae60;"></div>
+            <div class="color-option" data-cor="#f1c40f" style="background:#f1c40f;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB GRAPHICS -->
+      <div class="pacdora-tab-content" id="tab-content-graphics" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Peça Ativa do Molde</label>
+          <select id="pacdora-piece-select" class="form-input" style="background:var(--pacdora-card-bg); color:#fff; border-color:var(--pacdora-border);">
+            <option value="front">👕 Frente</option>
+            <option value="back">🔄 Costas</option>
+            <option value="left_sleeve">👈 Manga Esquerda</option>
+            <option value="right_sleeve">👉 Manga Direita</option>
+            <option value="collar">👔 Gola / Zíper</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Upload de Logomarca / Imagem</label>
+          <input type="file" id="pacdora-img-input" class="form-input" accept="image/png, image/jpeg, image/svg+xml" style="background:var(--pacdora-card-bg); border-color:var(--pacdora-border); color:#fff;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Inserir Texto no Molde</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="pacdora-text-input" class="form-input" placeholder="Digite seu texto..." style="background:var(--pacdora-card-bg); border-color:var(--pacdora-border); color:#fff;">
+            <button id="pacdora-btn-text" class="btn btn-secundario">Inserir</button>
+          </div>
+        </div>
+
+        <!-- Transform Sliders -->
+        <div class="pacdora-slider-group">
+          <div class="pacdora-slider-header">
+            <span>Posição X</span>
+            <span id="lbl-pos-x">50%</span>
+          </div>
+          <input type="range" id="rng-pos-x" class="pacdora-range" min="5" max="95" value="50">
+        </div>
+
+        <div class="pacdora-slider-group">
+          <div class="pacdora-slider-header">
+            <span>Posição Y</span>
+            <span id="lbl-pos-y">50%</span>
+          </div>
+          <input type="range" id="rng-pos-y" class="pacdora-range" min="5" max="95" value="50">
+        </div>
+
+        <div class="pacdora-slider-group">
+          <div class="pacdora-slider-header">
+            <span>Escala (Tamanho)</span>
+            <span id="lbl-scale">100%</span>
+          </div>
+          <input type="range" id="rng-scale" class="pacdora-range" min="30" max="250" value="100">
+        </div>
+
+        <div class="pacdora-slider-group">
+          <div class="pacdora-slider-header">
+            <span>Rotação</span>
+            <span id="lbl-rotation">0°</span>
+          </div>
+          <input type="range" id="rng-rotation" class="pacdora-range" min="0" max="360" value="0">
+        </div>
+      </div>
+
+      <!-- TAB FABRIC -->
+      <div class="pacdora-tab-content" id="tab-content-fabric" style="display:none;">
+        <label class="form-label">Tipo de Tecido Esportivo</label>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <button class="btn btn-ghost" style="text-align:left; border:1px solid var(--pacdora-border); color:#fff;" id="btn-fabric-dryfit">
+            🏃 Dry-Fit Esportivo (Microperfurado)
+          </button>
+          <button class="btn btn-ghost" style="text-align:left; border:1px solid var(--pacdora-border); color:#fff;" id="btn-fabric-polyester">
+            👕 Poliéster Liso Premium
+          </button>
+          <button class="btn btn-ghost" style="text-align:left; border:1px solid var(--pacdora-border); color:#fff;" id="btn-fabric-pique">
+            👔 Piqué Esportivo Clássico
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB PIECES (2D Pattern) -->
+      <div class="pacdora-tab-content" id="tab-content-pieces" style="display:none;">
+        <label class="form-label">Molde Plano 2D Interativo</label>
+        <div class="flat-pattern-stage-container" style="height:260px;">
+          <svg viewBox="0 0 500 500" class="pattern-svg-overlay" id="pacdora-svg-overlay">
+            <path id="pacdora-svg-path" d="M 120 40 Q 250 80 380 40 L 440 100 L 410 160 L 370 160 L 370 480 L 130 480 L 130 160 L 90 160 L 60 100 Z" fill="none" stroke="#f35e0e" stroke-width="3" stroke-dasharray="6,4" />
+            <text x="250" y="30" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="bold" id="pacdora-svg-title">MOLDE: FRENTE</text>
+          </svg>
+          <canvas id="pacdora-flat-canvas" width="1024" height="1024" class="flat-pattern-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER VIEWPORT (THREE.JS 3D CANVAS STAGE) -->
+    <div class="pacdora-viewport-wrapper">
+      <div id="canvas-3d-stage" style="width:100%; height:100%;"></div>
+
+      <!-- Overlay Floating Bar -->
+      <div class="pacdora-controls-overlay">
+        <button class="pacdora-ctrl-btn" id="btn-view-front-3d">👕 Frente</button>
+        <button class="pacdora-ctrl-btn" id="btn-view-back-3d">🔄 Costas</button>
+        <button class="pacdora-ctrl-btn" id="btn-view-left-3d">👈 Manga E.</button>
+        <button class="pacdora-ctrl-btn" id="btn-view-right-3d">👉 Manga D.</button>
+        <button class="pacdora-ctrl-btn" id="btn-reset-view-3d">🎯 Resetar</button>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL — PRODUCT OPTIONS & ORDER SUMMARY -->
+    <div class="pacdora-right-panel">
+      <h3 style="font-size:16px; font-weight:700; color:#fff; padding-bottom:10px; border-bottom:2px solid var(--pacdora-accent);">
+        Resumo do Design
+      </h3>
+
+      <div class="form-group">
+        <label class="form-label" style="color:var(--pacdora-text-muted);">Tamanho Principal</label>
+        <select id="pacdora-size-select" class="form-input" style="background:var(--pacdora-card-bg); border-color:var(--pacdora-border); color:#fff;">
+          <option value="P">P — Pequeno</option>
+          <option value="M" selected>M — Médio</option>
+          <option value="G">G — Grande</option>
+          <option value="GG">GG — Extra Grande</option>
+          <option value="EXG">EXG — Especial</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" style="color:var(--pacdora-text-muted);">Quantidade de Peças</label>
+        <input type="number" id="pacdora-qty-input" class="form-input" value="1" min="1" style="background:var(--pacdora-card-bg); border-color:var(--pacdora-border); color:#fff;">
+      </div>
+
+      <div style="background:var(--pacdora-card-bg); padding:16px; border-radius:8px; border:1px solid var(--pacdora-border); margin-top:auto;">
+        <span class="texto-xs" style="color:var(--pacdora-text-muted);">Preço Unitário Calculado:</span>
+        <div style="font-size:24px; font-weight:800; color:var(--pacdora-accent);" id="pacdora-price-display">
+          R$ 90,00
+        </div>
+        <span class="texto-xs" style="color:var(--pacdora-text-muted); display:block; margin-top:4px;">* Desconto progressivo para pedidos em lote</span>
+      </div>
+
+      <button id="pacdora-btn-add-cart" class="btn btn-primario btn-lg" style="width:100%; border-radius:8px; padding:14px; font-weight:800;">
+        🛒 Confirmar & Adicionar ao Carrinho
+      </button>
+    </div>
+
+  </div>
+
+  <!-- EDITOR JS ENGINE -->
+  <script src="js/editor/editor.js" type="module"></script>
+</body>
+
+</html>

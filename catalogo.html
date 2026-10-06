@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo de Produtos — Agência Rocha7</title>
+  <meta name="description"
+    content="Navegue por nosso catálogo completo de camisetas, moletons e canecas. Filtre por estilo, cor, tamanho e tipo de personalização.">
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/catalogo.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+  <header id="site-header"></header>
+
+  <main class="page-content">
+    <div class="container">
+
+      <!-- Breadcrumbs -->
+      <nav class="breadcrumbs" aria-label="Navegação">
+        <a href="index.html">Página Inicial</a>
+        <span class="sep">/</span>
+        <span class="current">Catálogo</span>
+      </nav>
+
+      <div class="secao-header" style="text-align: left; margin-bottom: 24px;">
+        <h1 class="titulo-secao">Catálogo de Produtos</h1>
+        <p class="texto-sec">Escolha entre modelos lisos, estampados ou crie o seu próprio design no editor.</p>
+      </div>
+
+      <!-- Filtros Mobile Button -->
+      <button class="filtros-mobile-toggle" id="filtros-mobile-toggle">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="4" y1="21" x2="4" y2="14"></line>
+          <line x1="4" y1="10" x2="4" y2="3"></line>
+          <line x1="12" y1="21" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12" y2="3"></line>
+          <line x1="20" y1="21" x2="20" y2="16"></line>
+          <line x1="20" y1="12" x2="20" y2="3"></line>
+          <line x1="1" y1="14" x2="7" y2="14"></line>
+          <line x1="9" y1="8" x2="15" y2="8"></line>
+          <line x1="17" y1="16" x2="23" y2="16"></line>
+        </svg>
+        Filtrar Produtos
+      </button>
+
+      <div class="filtros-overlay" id="filtros-overlay"></div>
+
+      <div class="catalogo-layout">
+
+        <!-- SIDEBAR FILTROS -->
+        <aside class="filtros-sidebar" id="filtros-sidebar">
+          <div class="filtros-header">
+            <h3>Filtros</h3>
+            <button class="filtros-limpar" id="btn-limpar-filtros">Limpar Tudo</button>
+          </div>
+
+          <!-- Categoria -->
+          <div class="filtro-grupo">
+            <div class="filtro-titulo">
+              <span>Produto</span>
+            </div>
+            <div class="filtro-opcoes">
+              <label class="form-check">
+                <input type="radio" name="categoria" value="todos" checked>
+                <span>Todos</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="categoria" value="camisa">
+                <span>Camisetas (Todas)</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="categoria" value="moletom">
+                <span>Moletons</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="categoria" value="caneca">
+                <span>Canecas</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Estilo de Camiseta -->
+          <div class="filtro-grupo" id="filtro-estilo-grupo">
+            <div class="filtro-titulo">
+              <span>Estilo de Camiseta</span>
+            </div>
+            <div class="filtro-opcoes">
+              <label class="form-check">
+                <input type="radio" name="estilo" value="todos" checked>
+                <span>Todos os estilos</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="estilo" value="normal">
+                <span>Camiseta Normal</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="estilo" value="polo">
+                <span>Polo (Malha Fria)</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="estilo" value="baby-look">
+                <span>Baby Look</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Tipo de Personalização -->
+          <div class="filtro-grupo">
+            <div class="filtro-titulo">
+              <span>Tipo de Item</span>
+            </div>
+            <div class="filtro-opcoes">
+              <label class="form-check">
+                <input type="radio" name="tipoPersonalizacao" value="todos" checked>
+                <span>Todos os tipos</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="tipoPersonalizacao" value="lisa">
+                <span>Lisa (Sem Estampa)</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="tipoPersonalizacao" value="pronta">
+                <span>Com Design Pronto</span>
+              </label>
+              <label class="form-check">
+                <input type="radio" name="tipoPersonalizacao" value="personalizavel">
+                <span>Personalizável</span>
+              </label>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- AREA DE GRID -->
+        <section>
+          <div class="catalogo-top">
+            <div class="catalogo-resultados" id="catalogo-resultados-count">
+              Exibindo <strong>0</strong> produtos
+            </div>
+
+            <div class="form-group" style="max-width: 250px;">
+              <input type="text" id="busca-input" class="form-input" placeholder="Buscar produto...">
+            </div>
+          </div>
+
+          <div class="filtros-ativos" id="filtros-ativos-container">
+            <!-- Tags ativas injetadas via JS -->
+          </div>
+
+          <div class="produtos-grid" id="produtos-grid-container">
+            <!-- Skeleton inicial -->
+            <div class="skeleton skeleton-card" style="height: 320px;"></div>
+            <div class="skeleton skeleton-card" style="height: 320px;"></div>
+            <div class="skeleton skeleton-card" style="height: 320px;"></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+
+  <script type="module" src="js/pages/catalogo.js"></script>
+</body>
+
+</html>

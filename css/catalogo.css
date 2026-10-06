@@ -1,0 +1,150 @@
+/* catalogo.css - Estilos da Página de Catálogo */
+
+.catalogo-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.filtros-mobile-toggle {
+  display: none;
+  width: 100%;
+  padding: 12px;
+  background-color: var(--cor-superficie);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-weight: 700;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.filtros-sidebar {
+  background: #ffffff;
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.filtros-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--cor-borda);
+}
+
+.filtros-header h3 {
+  font-size: 16px;
+}
+
+.filtros-limpar {
+  font-size: 12px;
+  color: var(--cor-primaria);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.filtros-limpar:hover {
+  text-decoration: underline;
+}
+
+.filtro-grupo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.filtro-titulo {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--cor-texto);
+}
+
+.filtro-opcoes {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.catalogo-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.catalogo-resultados {
+  font-size: 14px;
+  color: var(--cor-texto-sec);
+}
+
+.filtros-ativos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.filtro-tag-ativa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cor-primaria-clara);
+  color: var(--cor-primaria);
+  border: 1px solid rgba(243, 94, 14, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.filtro-tag-ativa button {
+  font-weight: bold;
+  color: var(--cor-primaria);
+}
+
+@media (max-width: 992px) {
+  .catalogo-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .filtros-mobile-toggle {
+    display: flex;
+  }
+
+  .filtros-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 1002;
+    transform: translateX(-100%);
+    transition: transform var(--trans-slow);
+    overflow-y: auto;
+  }
+
+  .filtros-sidebar.active {
+    transform: translateX(0);
+  }
+
+  .filtros-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1001;
+    display: none;
+  }
+
+  .filtros-overlay.active {
+    display: block;
+  }
+}

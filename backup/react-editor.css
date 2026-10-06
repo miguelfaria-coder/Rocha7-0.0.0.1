@@ -1,0 +1,393 @@
+/* react-editor.css - Styles for the React 2D/3D T-Shirt Mockup Editor Component */
+
+:root {
+  --re-bg-main: #0f172a;
+  --re-bg-card: #1e293b;
+  --re-bg-card-hover: #334155;
+  --re-primary: #f35e0e;
+  --re-primary-hover: #ea580c;
+  --re-primary-light: rgba(243, 94, 14, 0.15);
+  --re-text-main: #f8fafc;
+  --re-text-muted: #94a3b8;
+  --re-border: #334155;
+  --re-border-focus: #f35e0e;
+  --re-shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --re-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  --re-radius: 12px;
+  --re-font: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.react-editor-app {
+  font-family: var(--re-font);
+  background: var(--re-bg-main);
+  color: var(--re-text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.re-header {
+  height: 64px;
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--re-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.re-header__title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.re-header__badge {
+  background: var(--re-primary);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  -webkit-text-fill-color: #ffffff;
+}
+
+/* Main Grid Layout */
+.re-main-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr 340px;
+  gap: 20px;
+  padding: 20px;
+  flex: 1;
+}
+
+@media (max-width: 1300px) {
+  .re-main-layout {
+    grid-template-columns: 1fr 1fr;
+  }
+  .re-panel-right {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 900px) {
+  .re-main-layout {
+    grid-template-columns: 1fr;
+  }
+  .re-panel-right {
+    grid-column: span 1;
+  }
+}
+
+/* Panel Containers */
+.re-panel {
+  background: var(--re-bg-card);
+  border: 1px solid var(--re-border);
+  border-radius: var(--re-radius);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: var(--re-shadow-sm);
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+}
+
+.re-panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--re-border);
+  color: var(--re-text-main);
+}
+
+.re-panel-title__icon {
+  color: var(--re-primary);
+  font-size: 18px;
+}
+
+/* Piece Selector Tabs (PARTE 1) */
+.re-piece-tabs {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+  background: var(--re-bg-main);
+  padding: 4px;
+  border-radius: var(--re-radius);
+}
+
+.re-piece-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--re-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.re-piece-tab:hover {
+  color: var(--re-text-main);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.re-piece-tab--active {
+  background: var(--re-bg-card);
+  color: var(--re-primary);
+  border-color: var(--re-primary);
+  box-shadow: 0 2px 8px rgba(243, 94, 14, 0.25);
+}
+
+.re-piece-tab__icon {
+  font-size: 18px;
+}
+
+/* 2D Flat Pattern Canvas Stage */
+.re-canvas-2d-container {
+  background: #090d16;
+  border: 1px dashed var(--re-border);
+  border-radius: var(--re-radius);
+  position: relative;
+  height: 380px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.re-canvas-2d-svg-outline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.re-canvas-2d {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Model Selector Cards (PARTE 2) */
+.re-model-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.re-model-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 6px;
+  background: var(--re-bg-main);
+  border: 2px solid var(--re-border);
+  border-radius: var(--re-radius);
+  color: var(--re-text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.re-model-card:hover {
+  border-color: var(--re-primary);
+  color: var(--re-text-main);
+}
+
+.re-model-card--active {
+  border-color: var(--re-primary);
+  background: var(--re-primary-light);
+  color: var(--re-primary);
+}
+
+.re-model-card__icon {
+  font-size: 24px;
+}
+
+.re-model-card__label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Fabric Color Swatches */
+.re-color-swatches {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.re-color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid var(--re-border);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.re-color-swatch:hover,
+.re-color-swatch--active {
+  transform: scale(1.2);
+  border-color: var(--re-primary);
+  box-shadow: 0 0 0 3px var(--re-primary-light);
+}
+
+/* 3D WebGL Canvas Wrapper */
+.re-3d-stage {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  background: radial-gradient(circle at 50% 40%, #1e293b 0%, #0f172a 100%);
+  border-radius: var(--re-radius);
+  border: 1px solid var(--re-border);
+  overflow: hidden;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+}
+
+.re-3d-stage canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+/* Custom Controls & Sliders */
+.re-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.re-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--re-text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.re-input-file {
+  background: var(--re-bg-main);
+  border: 1px solid var(--re-border);
+  color: var(--re-text-main);
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.re-slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--re-bg-main);
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.re-slider-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.re-slider-val {
+  color: var(--re-primary);
+  font-weight: 700;
+}
+
+.re-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--re-border);
+  outline: none;
+}
+
+.re-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--re-primary);
+  cursor: pointer;
+  border: 2px solid #ffffff;
+}
+
+/* Buttons */
+.re-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.re-btn-primary {
+  background: var(--re-primary);
+  color: #ffffff;
+}
+
+.re-btn-primary:hover {
+  background: var(--re-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(243, 94, 14, 0.4);
+}
+
+.re-btn-secondary {
+  background: #334155;
+  color: #ffffff;
+}
+
+.re-btn-secondary:hover {
+  background: #475569;
+}
+
+.re-btn-export {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+.re-btn-export:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+.re-btn-full {
+  width: 100%;
+}

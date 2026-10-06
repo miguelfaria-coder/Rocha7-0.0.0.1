@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <script>document.documentElement.classList.add('js');</script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rocha7 — Camisetas e uniformes personalizados em lote</title>
+  <meta name="description"
+    content="Especialistas em uniformes e camisetas personalizadas em lote para igrejas, congressos e lideranças. Camisetas, moletons e canecas de alta qualidade.">
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/home.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body>
+
+  <header id="site-header" class="site-nav"></header>
+
+  <main>
+    <section class="hero" id="hero-section"></section>
+
+    <section class="secao container">
+      <div class="secao-header reveal">
+        <h2 class="titulo-secao">Categorias principais</h2>
+        <div class="divider"></div>
+        <p class="texto-elegante">Escolha o produto ideal para o seu evento</p>
+      </div>
+
+      <div class="categorias-grid">
+        <a href="catalogo.html?categoria=camisa" class="categoria-card reveal">
+          <img src="assets/img/produtos/camiseta-branca.png" alt="Camisetas e polos" class="reveal-img" loading="lazy" decoding="async">
+          <div class="categoria-card-overlay">
+            <h3>Camisetas &amp; Polos</h3>
+            <p>Modelos tradicionais, polo em malha fria e baby looks</p>
+            <span class="link-ver">Explorar camisetas →</span>
+          </div>
+        </a>
+
+        <a href="catalogo.html?categoria=moletom" class="categoria-card reveal">
+          <img src="assets/img/produtos/moletom-preto.png" alt="Moletons" class="reveal-img" loading="lazy" decoding="async">
+          <div class="categoria-card-overlay">
+            <h3>Moletons</h3>
+            <p>Canguru flanelado para retiros de inverno</p>
+            <span class="link-ver">Explorar moletons →</span>
+          </div>
+        </a>
+
+        <a href="catalogo.html?categoria=caneca" class="categoria-card reveal">
+          <img src="assets/img/produtos/caneca-branca.png" alt="Canecas" class="reveal-img" loading="lazy" decoding="async">
+          <div class="categoria-card-overlay">
+            <h3>Canecas</h3>
+            <p>Cerâmica resinada para presentes e lideranças</p>
+            <span class="link-ver">Explorar canecas →</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="secao secao-grupo">
+      <div class="container">
+        <div class="grupo-content">
+          <div class="grupo-texto">
+            <span class="badge badge-destaque reveal" style="margin-bottom: 12px;">Para igrejas e grupos</span>
+            <h2 class="titulo-secao reveal">Vai encomendar para mais de 10 pessoas?</h2>
+            <p class="reveal">Quanto mais peças da mesma arte você encomenda, menor fica o valor unitário. O sistema dilui o custo de
+              estampa automaticamente na grade de tamanhos.</p>
+
+            <div class="grupo-beneficios">
+              <div class="grupo-beneficio reveal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Grade simplificada para vários tamanhos e cores</span>
+              </div>
+              <div class="grupo-beneficio reveal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Diluição automática da estampa (base + R$ 60 / quantidade)</span>
+              </div>
+              <div class="grupo-beneficio reveal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span>Atendimento direto no WhatsApp para arte e prazos</span>
+              </div>
+            </div>
+
+            <a href="pedido-lote.html" class="btn btn-primario btn-lg reveal">Montar pedido em lote</a>
+          </div>
+
+          <div class="grupo-img">
+            <img src="assets/img/produtos/camiseta-preta.png" alt="Camisetas em grupo" class="reveal-img" loading="lazy" decoding="async">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="secao container">
+      <div class="secao-header reveal">
+        <h2 class="titulo-secao">Destaques do catálogo</h2>
+        <div class="divider"></div>
+        <p class="texto-elegante">Modelos mais pedidos para congressos e ministérios</p>
+      </div>
+      <div class="destaques-compact-grid" id="destaques-container"></div>
+    </section>
+
+    <section class="secao container">
+      <div class="secao-header reveal">
+        <h2 class="titulo-secao">O que dizem os clientes</h2>
+        <div class="divider"></div>
+        <p class="texto-elegante">Igrejas e ministérios que confiam na Rocha7</p>
+      </div>
+
+      <div class="depoimentos-grid">
+        <article class="depoimento-card reveal">
+          <div class="stars depoimento-stars">★★★★★</div>
+          <p class="depoimento-texto">"Compramos 85 camisetas para o congresso de jovens. A malha é excelente e o envio
+            chegou antes do prazo."</p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">PR</div>
+            <div>
+              <div class="depoimento-nome">Pr. Roberto Silva</div>
+              <div class="depoimento-grupo">Igreja Boa Nova (São Paulo)</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="depoimento-card reveal">
+          <div class="stars depoimento-stars">★★★★★</div>
+          <p class="depoimento-texto">"As polos em malha fria para a equipe de recepção ficaram impecáveis. O bordado
+            veio perfeito e o tecido é fresco."</p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">LC</div>
+            <div>
+              <div class="depoimento-nome">Lidiane Costa</div>
+              <div class="depoimento-grupo">Líder de Eventos</div>
+            </div>
+          </div>
+        </article>
+
+        <article class="depoimento-card reveal">
+          <div class="stars depoimento-stars">★★★★★</div>
+          <p class="depoimento-texto">"Fizemos moletons para o retiro de casais. O flanelado interno é quentinho.
+            Recomendo demais."</p>
+          <div class="depoimento-autor">
+            <div class="depoimento-avatar">MA</div>
+            <div>
+              <div class="depoimento-nome">Marcelo &amp; Ana</div>
+              <div class="depoimento-grupo">Ministério da Família</div>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script type="module" src="js/pages/home.js"></script>
+</body>
+
+</html>

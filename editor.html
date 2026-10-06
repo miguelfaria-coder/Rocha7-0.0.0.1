@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor 3D de Camisetas | Agência Rocha7</title>
+  <meta name="description" content="Personalize camisetas em 3D com estampas, textos e cores. Visualize em tempo real e exporte seu design.">
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/editor.css">
+
+  <!-- Three.js, OrbitControls & GLTFLoader Standalone -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/editor/tshirtModelData.js"></script>
+</head>
+
+<body>
+
+  <header id="site-header"></header>
+
+  <main class="page-content" style="padding-top: var(--header-height);">
+    <div class="editor-container">
+
+      <!-- CONTROLES ESQUERDA -->
+      <div class="editor-panel">
+        <h3 class="titulo-card">Ferramentas de Design & Molde 2D</h3>
+
+        <!-- ========== SELETOR DE MODELO 3D ========== -->
+        <div class="form-group">
+          <label class="form-label">Modelo de Camiseta</label>
+          <div class="model-selector-grid" id="model-selector-grid">
+            <button class="model-card model-card--active" data-model="normal" id="model-btn-normal" title="Camiseta Normal">
+              <span class="model-card__icon">👕</span>
+              <span class="model-card__label">Normal</span>
+            </button>
+            <button class="model-card" data-model="football_jersey" id="model-btn-football" title="Polo Futebol Zíper">
+              <span class="model-card__icon">⚽</span>
+              <span class="model-card__label">Polo Zíper</span>
+            </button>
+            <button class="model-card" data-model="polo" id="model-btn-polo" title="Polo Clássica">
+              <span class="model-card__icon">👔</span>
+              <span class="model-card__label">Polo</span>
+            </button>
+            <button class="model-card" data-model="babylook" id="model-btn-babylook" title="Baby Look Feminina">
+              <span class="model-card__icon">👚</span>
+              <span class="model-card__label">Baby Look</span>
+            </button>
+            <button class="model-card" data-model="moletom" id="model-btn-moletom" title="Moletom com Capuz">
+              <span class="model-card__icon">🧥</span>
+              <span class="model-card__label">Moletom</span>
+            </button>
+          </div>
+          <span class="texto-xs texto-sec" id="model-placeholder-notice" style="display:none; margin-top:4px; color: var(--cor-alerta);">
+            ⚠️ Modelo placeholder — arquivo .glb final pendente
+          </span>
+        </div>
+
+        <!-- ========== PARTE 1: SELETOR DE PEÇA DO MOLDE 2D ========== -->
+        <div class="form-group">
+          <label class="form-label">Peça do Molde 2D (Pacdora Style)</label>
+          <div class="piece-selector-tabs" id="piece-selector-tabs">
+            <button class="piece-tab piece-tab--active" data-piece="front" id="tab-piece-front">
+              <span>👕 Frente</span>
+            </button>
+            <button class="piece-tab" data-piece="back" id="tab-piece-back">
+              <span>🔄 Costas</span>
+            </button>
+            <button class="piece-tab" data-piece="left_sleeve" id="tab-piece-lsleeve">
+              <span>👈 Manga E.</span>
+            </button>
+            <button class="piece-tab" data-piece="right_sleeve" id="tab-piece-rsleeve">
+              <span>👉 Manga D.</span>
+            </button>
+            <button class="piece-tab" data-piece="collar" id="tab-piece-collar">
+              <span>👔 Gola/Zíper</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- STAGE DO MOLDE PLANO 2D -->
+        <div class="form-group">
+          <label class="form-label" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Molde Plano <strong id="active-piece-label" style="color:var(--cor-primaria);">FRENTE</strong></span>
+            <span class="texto-xs texto-sec">Arraste para posicionar</span>
+          </label>
+          <div class="flat-pattern-stage-container" id="flat-pattern-container">
+            <svg viewBox="0 0 500 500" class="pattern-svg-overlay" id="pattern-svg-overlay">
+              <path id="svg-outline-path" d="M 120 40 Q 250 80 380 40 L 440 100 L 410 160 L 370 160 L 370 480 L 130 480 L 130 160 L 90 160 L 60 100 Z" fill="none" stroke="#f35e0e" stroke-width="3" stroke-dasharray="6,4" />
+              <text x="250" y="30" text-anchor="middle" fill="#94a3b8" font-size="13" font-weight="bold" id="svg-pattern-title">MOLDE: FRENTE</text>
+            </svg>
+            <canvas id="flat-pattern-interactive-canvas" width="1024" height="1024" class="flat-pattern-canvas"></canvas>
+          </div>
+        </div>
+
+        <!-- Upload PNG / JPG -->
+        <div class="form-group">
+          <label class="form-label">Upload de Estampa para <span id="upload-piece-target" style="color:var(--cor-primaria); font-weight:bold;">FRENTE</span></label>
+          <input type="file" id="editor-img-upload" class="form-input" accept="image/png, image/jpeg, image/svg+xml, image/webp">
+          <span class="texto-xs texto-sec" style="display:block; margin-top:4px;">Insira imagens PNG transparentes, JPG ou SVG</span>
+        </div>
+
+        <!-- Adicionar Texto -->
+        <div class="form-group">
+          <label class="form-label">Adicionar Texto no Molde</label>
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="editor-texto-input" class="form-input" placeholder="Digite seu texto...">
+            <button id="btn-add-texto" class="btn btn-secundario">Inserir</button>
+          </div>
+        </div>
+
+        <!-- Fonte e Cor do Texto -->
+        <div class="form-group">
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+            <div>
+              <label class="form-label">Fonte</label>
+              <select id="editor-fonte-select" class="form-input">
+                <option value="Outfit, sans-serif">Outfit</option>
+                <option value="Arial Black, sans-serif">Arial Black</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="Impact, sans-serif">Impact</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Cor Texto</label>
+              <input type="color" id="editor-cor-texto" class="form-input" value="#f35e0e" style="height:40px; cursor:pointer;">
+            </div>
+          </div>
+        </div>
+
+        <!-- Cor do Tecido (Troca de Cor no 3D) -->
+        <div class="form-group">
+          <label class="form-label">Cor do Tecido (3D)</label>
+          <div class="color-options" id="editor-cores-container">
+            <div class="color-option selecionado" data-cor="#ffffff" title="Branco" style="background-color:#ffffff;"></div>
+            <div class="color-option" data-cor="#111111" title="Preto" style="background-color:#111111;"></div>
+            <div class="color-option" data-cor="#7f8c8d" title="Cinza" style="background-color:#7f8c8d;"></div>
+            <div class="color-option" data-cor="#0d233a" title="Azul Marinho" style="background-color:#0d233a;"></div>
+            <div class="color-option" data-cor="#c0392b" title="Vermelho" style="background-color:#c0392b;"></div>
+            <div class="color-option" data-cor="#f1c40f" title="Amarelo" style="background-color:#f1c40f;"></div>
+            <div class="color-option" data-cor="#27ae60" title="Verde" style="background-color:#27ae60;"></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; margin-top:8px;">
+            <span class="texto-xs">Personalizada:</span>
+            <input type="color" id="editor-cor-custom" value="#ffffff" style="width:32px; height:32px; border:none; border-radius:50%; cursor:pointer;">
+          </div>
+        </div>
+
+        <!-- ========== CONTROLES AVANÇADOS DO ELEMENTO SELECIONADO ========== -->
+        <div class="form-group" id="controles-elemento-selecionado"
+          style="display:none; background: var(--cor-superficie); padding: 14px; border-radius: 8px; border: 1px solid var(--cor-borda);">
+          <label class="form-label" style="color: var(--cor-primaria); font-weight:700;">🎯 Ajustar Posição / Escala / Rotação</label>
+
+          <!-- Botões Direcionais -->
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; margin-top:8px;">
+            <div></div>
+            <button id="btn-elem-up" class="btn btn-sm btn-ghost" title="Subir na camisa">⬆️</button>
+            <div></div>
+            <button id="btn-elem-left" class="btn btn-sm btn-ghost" title="Mover para esquerda">⬅️</button>
+            <button id="btn-elem-center" class="btn btn-sm btn-ghost" title="Centralizar">🎯</button>
+            <button id="btn-elem-right" class="btn btn-sm btn-ghost" title="Mover para direita">➡️</button>
+            <div></div>
+            <button id="btn-elem-down" class="btn btn-sm btn-ghost" title="Descer na camisa">⬇️</button>
+            <div></div>
+          </div>
+
+          <!-- Sliders de Controle Avançado -->
+          <div class="decal-sliders">
+            <div class="slider-group">
+              <label class="slider-label">
+                <span>Posição X</span>
+                <span class="slider-value" id="slider-val-x">50%</span>
+              </label>
+              <input type="range" id="slider-pos-x" class="styled-range" min="5" max="95" value="50" step="1">
+            </div>
+            <div class="slider-group">
+              <label class="slider-label">
+                <span>Posição Y</span>
+                <span class="slider-value" id="slider-val-y">40%</span>
+              </label>
+              <input type="range" id="slider-pos-y" class="styled-range" min="5" max="95" value="40" step="1">
+            </div>
+            <div class="slider-group">
+              <label class="slider-label">
+                <span>Escala</span>
+                <span class="slider-value" id="slider-val-scale">100%</span>
+              </label>
+              <input type="range" id="slider-scale" class="styled-range" min="30" max="250" value="100" step="5">
+            </div>
+            <div class="slider-group">
+              <label class="slider-label">
+                <span>Rotação</span>
+                <span class="slider-value" id="slider-val-rotation">0°</span>
+              </label>
+              <input type="range" id="slider-rotation" class="styled-range" min="0" max="360" value="0" step="5">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+            <button id="btn-elem-aumentar" class="btn btn-sm btn-ghost" style="flex:1;">Tamanho +</button>
+            <button id="btn-elem-diminuir" class="btn btn-sm btn-ghost" style="flex:1;">Tamanho -</button>
+            <button id="btn-elem-rotacionar" class="btn btn-sm btn-ghost" style="flex:1;">Girar 🔄</button>
+          </div>
+          <button id="btn-elem-remover" class="btn btn-sm btn-perigo" style="margin-top:10px; width:100%;">Remover Elemento 🗑️</button>
+        </div>
+
+        <div style="margin-top: auto; border-top: 1px solid var(--cor-borda); padding-top: 16px;">
+          <a href="https://wa.me/5511999999999?text=Ol%C3%A1!%20Preciso%20de%20ajuda%20para%20criar%20meu%20design"
+            target="_blank" class="btn btn-ghost btn-full" style="font-size: 12px; text-align:center;">
+            Não sabe o que criar? Fale com o vendedor no WhatsApp
+          </a>
+        </div>
+      </div>
+
+      <!-- CANVAS CENTRAL - MODELO 3D REAL -->
+      <div class="editor-canvas-wrapper">
+        <div class="canvas-3d-header">
+          <h2 class="titulo-card" style="margin-bottom: 0;" id="canvas-model-title">Modelo 3D — Camiseta Normal</h2>
+          <div class="canvas-3d-actions">
+            <button id="btn-reset-cam" class="btn btn-xs btn-ghost" title="Resetar Câmera">🎯 Resetar Vista</button>
+            <button id="btn-zoom-in" class="btn btn-xs btn-ghost" title="Zoom In">🔍 +</button>
+            <button id="btn-zoom-out" class="btn btn-xs btn-ghost" title="Zoom Out">🔍 -</button>
+          </div>
+        </div>
+
+        <!-- Palco do Renderizador WebGL Three.js -->
+        <div id="canvas-3d-stage" class="canvas-3d-stage">
+          <div id="loading-overlay" class="loading-overlay">
+            <div class="spinner"></div>
+            <span id="loading-text">Carregando Modelo 3D...</span>
+          </div>
+        </div>
+
+        <!-- Barra de Instruções -->
+        <div class="editor-controls-bar">
+          <span class="texto-xs texto-sec">
+            💡 <strong>Instruções 3D:</strong> Arraste para <strong>rotacionar 360°</strong> | Roda do mouse para <strong>Zoom</strong> | Modelo 3D GLTF Real HD
+          </span>
+        </div>
+      </div>
+
+      <!-- CONFIRMAÇÃO DIREITA -->
+      <div class="editor-panel">
+        <h3 class="titulo-card">Finalizar Personalização</h3>
+
+        <div class="form-group">
+          <label class="form-label">Tamanho</label>
+          <select id="editor-tamanho-select" class="form-input">
+            <option value="P">Tamanho P</option>
+            <option value="M" selected>Tamanho M</option>
+            <option value="G">Tamanho G</option>
+            <option value="GG">Tamanho GG</option>
+            <option value="EXG">Tamanho EXG</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Quantidade</label>
+          <input type="number" id="editor-qtd-input" class="form-input" value="1" min="1">
+        </div>
+
+        <div class="resumo-linha" style="margin-top: 16px;">
+          <span>Preço calculado:</span>
+          <strong id="editor-preco-unitario" class="preco">R$ 90,00</strong>
+        </div>
+        <p class="texto-xs texto-sec">* Custo de estampa diluído automaticamente pela quantidade</p>
+
+        <!-- ========== BOTÃO EXPORTAR PNG ========== -->
+        <button id="btn-exportar-png" class="btn btn-exportar btn-full" style="margin-top: 20px;">
+          <span class="btn-exportar__icon">📸</span>
+          Exportar Mockup como PNG
+        </button>
+
+        <button id="btn-salvar-confirmar-design" class="btn btn-primario btn-lg btn-full" style="margin-top: 12px;">
+          Salvar & Adicionar ao Carrinho
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <script type="module" src="js/editor/editor.js"></script>
+</body>
+
+</html>

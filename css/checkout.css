@@ -1,0 +1,74 @@
+/* checkout.css - Estilos do Processo de Finalização de Compra */
+
+.steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cor-texto-mutado);
+}
+
+.step.active {
+  color: var(--cor-primaria);
+}
+
+.step.completed {
+  color: var(--cor-sucesso);
+}
+
+.step-numero {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--cor-borda);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.step.active .step-numero {
+  border-color: var(--cor-primaria);
+  background-color: var(--cor-primaria);
+  color: #ffffff;
+}
+
+.step.completed .step-numero {
+  border-color: var(--cor-sucesso);
+  background-color: var(--cor-sucesso);
+  color: #ffffff;
+}
+
+.step-line {
+  flex: 1;
+  height: 2px;
+  background-color: var(--cor-borda);
+}
+
+.step-line.completed {
+  background-color: var(--cor-sucesso);
+}
+
+.checkout-grid {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 32px;
+}
+
+@media (max-width: 992px) {
+  .checkout-grid {
+    grid-template-columns: 1fr;
+  }
+}

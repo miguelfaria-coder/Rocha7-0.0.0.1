@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editor 3D/2D de Mockup de Camiseta (React Component)</title>
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <!-- Fonts & React Editor Stylesheet -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/react-editor.css">
+
+  <!-- React 18 & ReactDOM Standalone -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+
+  <!-- Babel for Browser JSX parsing -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Three.js, OrbitControls & GLTFLoader UMD Standalone -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+
+<body>
+
+  <div id="root"></div>
+
+  <!-- Inline Data fallback -->
+  <script src="js/editor/tshirtModelData.js"></script>
+
+  <!-- React JSX Application Script -->
+  <script type="text/babel">
+    const THREE = window.THREE;
+    const OrbitControls = THREE.OrbitControls;
+    const GLTFLoader = THREE.GLTFLoader;
+
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    // --- SVG Outlines for 5 Flat Pattern Pieces ---
+    const PATTERN_OUTLINES = {
+      frente: (
+        <path
+          d="M 120 40 Q 250 80 380 40 L 440 100 L 410 160 L 370 160 L 370 480 L 130 480 L 130 160 L 90 160 L 60 100 Z"
+          fill="none"
+          stroke="#f35e0e"
+          strokeWidth="3"
+          strokeDasharray="6,4"
+        />
+      ),
+      costas: (
+        <path
+          d="M 120 50 Q 250 60 380 50 L 440 110 L 410 170 L 370 170 L 370 480 L 130 480 L 130 170 L 90 170 L 60 110 Z"
+          fill="none"
+          stroke="#3b82f6"
+          strokeWidth="3"
+          strokeDasharray="6,4"
+        />
+      ),
+      manga_esquerda: (
+        <path
+          d="M 60 40 C 150 10 350 10 440 40 L 480 300 L 20 300 Z"
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="3"
+          strokeDasharray="6,4"
+        />
+      ),
+      manga_direita: (
+        <path
+          d="M 60 40 C 150 10 350 10 440 40 L 480 300 L 20 300 Z"
+          fill="none"
+          stroke="#10b981"
+          strokeWidth="3"
+          strokeDasharray="6,4"
+        />
+      ),
+      gola: (
+        <path
+          d="M 50 120 C 150 40 350 40 450 120 C 350 180 150 180 50 120 Z"
+          fill="none"
+          stroke="#f59e0b"
+          strokeWidth="3"
+          strokeDasharray="6,4"
+        />
+      )
+    };
+
+    // --- FlatPatternEditor Component (Parte 1) ---
+    function FlatPatternEditor({ activePiece, setActivePiece, patternState, onUpdatePieceState, onTextureUpdate }) {
+      const canvasRef = useRef(null);
+      const containerRef = useRef(null);
+      const [isDragging, setIsDragging] = useState(false);
+      const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+      const currentPieceData = patternState[activePiece];
+
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        if (currentPieceData && currentPieceData.imageElement) {
+          ctx.save();
+          const posX = currentPieceData.x * w;
+          const posY = currentPieceData.y * h;
+
+          ctx.translate(posX, posY);
+          ctx.rotate(((currentPieceData.rotation || 0) * Math.PI) / 180);
+          ctx.scale(currentPieceData.scale || 1, currentPieceData.scale || 1);
+
+          const img = currentPieceData.imageElement;
+          const imgW = currentPieceData.width || 180;
+          const imgH = currentPieceData.height || 180;
+
+          ctx.drawImage(img, -imgW / 2, -imgH / 2, imgW, imgH);
+          ctx.restore();
+        }
+
+        if (onTextureUpdate) {
+          onTextureUpdate(activePiece, canvas);
+        }
+      }, [activePiece, currentPieceData, onTextureUpdate]);
+
+      const handleMouseDown = (e) => {
+        if (!currentPieceData || !currentPieceData.imageElement) return;
+        setIsDragging(true);
+        setDragStart({ x: e.clientX, y: e.clientY });
+      };
+
+      const handleMouseMove = (e) => {
+        if (!isDragging || !currentPieceData) return;
+        const container = containerRef.current;
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const dx = (e.clientX - dragStart.x) / rect.width;
+        const dy = (e.clientY - dragStart.y) / rect.height;
+
+        const newX = Math.max(0.05, Math.min(0.95, currentPieceData.x + dx));
+        const newY = Math.max(0.05, Math.min(0.95, currentPieceData.y + dy));
+
+        onUpdatePieceState(activePiece, { x: newX, y: newY });
+        setDragStart({ x: e.clientX, y: e.clientY });
+      };
+
+      const handleMouseUp = () => setIsDragging(false);
+
+      const PIECES = [
+        { id: 'frente', label: 'Frente', icon: '👕' },
+        { id: 'costas', label: 'Costas', icon: '🔄' },
+        { id: 'manga_esquerda', label: 'Manga Esq.', icon: '👈' },
+        { id: 'manga_direita', label: 'Manga Dir.', icon: '👉' },
+        { id: 'gola', label: 'Gola', icon: '👔' }
+      ];
+
+      return (
+        <div className="re-panel re-panel-left">
+          <h3 className="re-panel-title">
+            <span className="re-panel-title__icon">📐</span>
+            PARTE 1 — Editor 2D de Molde Plano
+          </h3>
+
+          <div className="re-piece-tabs">
+            {PIECES.map((piece) => (
+              <button
+                key={piece.id}
+                className={`re-piece-tab ${activePiece === piece.id ? 're-piece-tab--active' : ''}`}
+                onClick={() => setActivePiece(piece.id)}
+              >
+                <span className="re-piece-tab__icon">{piece.icon}</span>
+                <span>{piece.label}</span>
+              </button>
+            ))}
+          </div>
+
+          <div
+            className="re-canvas-2d-container"
+            ref={containerRef}
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+            onMouseLeave={handleMouseUp}
+          >
+            <svg viewBox="0 0 500 500" className="re-canvas-2d-svg-outline">
+              {PATTERN_OUTLINES[activePiece]}
+              <text x="250" y="30" textAnchor="middle" fill="#64748b" fontSize="14" fontWeight="bold">
+                MOLDE DE CORTE: {activePiece.toUpperCase().replace('_', ' ')}
+              </text>
+            </svg>
+
+            <canvas ref={canvasRef} width={1024} height={1024} className="re-canvas-2d" />
+
+            {!currentPieceData?.imageElement && (
+              <div style={{ position: 'absolute', pointerEvents: 'none', textAlign: 'center', color: '#64748b' }}>
+                <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>🖼️</span>
+                <span style={{ fontSize: '13px', fontWeight: 'bold' }}>
+                  Nenhuma estampa nesta peça ({activePiece})
+                </span>
+                <span style={{ fontSize: '11px', display: 'block', marginTop: '4px' }}>
+                  Faça upload de uma imagem no painel à direita
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
+            💡 <strong>Dica:</strong> Arraste com o mouse sobre o molde para posicionar a imagem. Ajuste escala e rotação no painel lateral.
+          </div>
+        </div>
+      );
+    }
+
+    // --- ThreeDPreviewCanvas Component (Parte 2) ---
+    function ThreeDPreviewCanvas({ modelStyle, fabricColor, textures, onCanvasReady }) {
+      const mountRef = useRef(null);
+      const rendererRef = useRef(null);
+      const sceneRef = useRef(null);
+      const cameraRef = useRef(null);
+      const controlsRef = useRef(null);
+      const tshirtMeshesRef = useRef([]);
+      const decalFrontMeshRef = useRef(null);
+      const decalBackMeshRef = useRef(null);
+      const decalLeftSleeveMeshRef = useRef(null);
+      const decalRightSleeveMeshRef = useRef(null);
+      const tshirtGroupRef = useRef(null);
+
+      const textureFrontRef = useRef(new THREE.CanvasTexture(document.createElement('canvas')));
+      const textureBackRef = useRef(new THREE.CanvasTexture(document.createElement('canvas')));
+      const textureLeftSleeveRef = useRef(new THREE.CanvasTexture(document.createElement('canvas')));
+      const textureRightSleeveRef = useRef(new THREE.CanvasTexture(document.createElement('canvas')));
+
+      useEffect(() => {
+        const container = mountRef.current;
+        if (!container) return;
+
+        const scene = new THREE.Scene();
+        sceneRef.current = scene;
+
+        const camera = new THREE.PerspectiveCamera(40, container.clientWidth / container.clientHeight, 0.1, 100);
+        camera.position.set(0, 0, 4.5);
+        cameraRef.current = camera;
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+
+        container.appendChild(renderer.domElement);
+        rendererRef.current = renderer;
+
+        if (onCanvasReady) onCanvasReady(renderer);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 1.5;
+        controls.maxDistance = 7.0;
+        controlsRef.current = controls;
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.4);
+        scene.add(ambientLight);
+
+        const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.6);
+        dirLight1.position.set(5, 8, 5);
+        scene.add(dirLight1);
+
+        const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight2.position.set(-5, 4, -5);
+        scene.add(dirLight2);
+
+        setupDecalQuads(scene);
+        loadGLTFModel(modelStyle, fabricColor);
+
+        let animationFrameId;
+        const animate = () => {
+          animationFrameId = requestAnimationFrame(animate);
+          controls.update();
+          renderer.render(scene, camera);
+        };
+        animate();
+
+        const handleResize = () => {
+          if (!container || !renderer || !camera) return;
+          camera.aspect = container.clientWidth / container.clientHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(container.clientWidth, container.clientHeight);
+        };
+
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          cancelAnimationFrame(animationFrameId);
+          window.removeEventListener('resize', handleResize);
+          if (renderer.domElement && renderer.domElement.parentElement) {
+            renderer.domElement.parentElement.removeChild(renderer.domElement);
+          }
+          renderer.dispose();
+        };
+      }, []);
+
+      useEffect(() => {
+        if (sceneRef.current) loadGLTFModel(modelStyle, fabricColor);
+      }, [modelStyle]);
+
+      useEffect(() => {
+        tshirtMeshesRef.current.forEach((mesh) => {
+          if (mesh.material && mesh.material.color) {
+            mesh.material.color.set(fabricColor);
+            mesh.material.needsUpdate = true;
+          }
+        });
+      }, [fabricColor]);
+
+      useEffect(() => {
+        if (!textures) return;
+        if (textures.frente && decalFrontMeshRef.current) updateTextureFromCanvas(textureFrontRef.current, textures.frente);
+        if (textures.costas && decalBackMeshRef.current) updateTextureFromCanvas(textureBackRef.current, textures.costas);
+        if (textures.manga_esquerda && decalLeftSleeveMeshRef.current) updateTextureFromCanvas(textureLeftSleeveRef.current, textures.manga_esquerda);
+        if (textures.manga_direita && decalRightSleeveMeshRef.current) updateTextureFromCanvas(textureRightSleeveRef.current, textures.manga_direita);
+      }, [textures]);
+
+      const updateTextureFromCanvas = (texture, canvasSource) => {
+        if (!canvasSource) return;
+        texture.image = canvasSource;
+        texture.anisotropy = 16;
+        texture.needsUpdate = true;
+      };
+
+      const setupDecalQuads = (scene) => {
+        const planeGeo = new THREE.PlaneGeometry(0.82, 1.05);
+
+        const frontMat = new THREE.MeshBasicMaterial({ map: textureFrontRef.current, transparent: true, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+        const frontMesh = new THREE.Mesh(planeGeo, frontMat);
+        frontMesh.position.set(0, 0.02, 0.38);
+        scene.add(frontMesh);
+        decalFrontMeshRef.current = frontMesh;
+
+        const backMat = new THREE.MeshBasicMaterial({ map: textureBackRef.current, transparent: true, depthTest: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 });
+        const backMesh = new THREE.Mesh(planeGeo, backMat);
+        backMesh.position.set(0, 0.02, -0.38);
+        backMesh.rotation.y = Math.PI;
+        scene.add(backMesh);
+        decalBackMeshRef.current = backMesh;
+
+        const sleeveGeo = new THREE.PlaneGeometry(0.4, 0.4);
+        const leftSleeveMat = new THREE.MeshBasicMaterial({ map: textureLeftSleeveRef.current, transparent: true, depthTest: true, depthWrite: false });
+        const leftSleeveMesh = new THREE.Mesh(sleeveGeo, leftSleeveMat);
+        leftSleeveMesh.position.set(0.65, 0.1, 0.05);
+        leftSleeveMesh.rotation.y = Math.PI / 2;
+        scene.add(leftSleeveMesh);
+        decalLeftSleeveMeshRef.current = leftSleeveMesh;
+
+        const rightSleeveMat = new THREE.MeshBasicMaterial({ map: textureRightSleeveRef.current, transparent: true, depthTest: true, depthWrite: false });
+        const rightSleeveMesh = new THREE.Mesh(sleeveGeo, rightSleeveMat);
+        rightSleeveMesh.position.set(-0.65, 0.1, 0.05);
+        rightSleeveMesh.rotation.y = -Math.PI / 2;
+        scene.add(rightSleeveMesh);
+        decalRightSleeveMeshRef.current = rightSleeveMesh;
+      };
+
+      const loadGLTFModel = (style, colorHex) => {
+        const gltfLoader = new GLTFLoader();
+        if (tshirtGroupRef.current && sceneRef.current) {
+          sceneRef.current.remove(tshirtGroupRef.current);
+          tshirtGroupRef.current = null;
+        }
+
+        tshirtMeshesRef.current = [];
+
+        const onLoaded = (gltf) => {
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
+          const center = box.getCenter(new THREE.Vector3());
+          const size = box.getSize(new THREE.Vector3());
+
+          model.position.sub(center);
+          const maxDim = Math.max(size.x, size.y, size.z);
+          const scale = 2.1 / maxDim;
+          model.scale.set(scale, scale, scale);
+
+          model.traverse((child) => {
+            if (child.isMesh) {
+              tshirtMeshesRef.current.push(child);
+              child.material = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(colorHex),
+                roughness: 0.75,
+                metalness: 0.02,
+                side: THREE.DoubleSide
+              });
+            }
+          });
+
+          tshirtGroupRef.current = model;
+          sceneRef.current.add(model);
+        };
+
+        if (style === 'normal') {
+          gltfLoader.load('T_shirt_gltf.zip.gltf', onLoaded, undefined, () => parseInlineFallback(gltfLoader, onLoaded));
+        } else {
+          // Placeholder for Polo, Baby Look, Moletom
+          parseInlineFallback(gltfLoader, onLoaded);
+        }
+      };
+
+      const parseInlineFallback = (gltfLoader, callback) => {
+        try {
+          if (window.TSHIRT_GLTF_DATA) {
+            gltfLoader.parse(JSON.stringify(window.TSHIRT_GLTF_DATA), '', (gltf) => callback(gltf));
+          }
+        } catch (e) {
+          console.error("Parse inline error:", e);
+        }
+      };
+
+      return (
+        <div className="re-panel" style={{ flex: 1 }}>
+          <h3 className="re-panel-title">
+            <span className="re-panel-title__icon">🌐</span>
+            PARTE 2 — Preview 3D Interativo (@react-three/fiber + Drei OrbitControls)
+          </h3>
+
+          <div className="re-3d-stage" ref={mountRef}>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '12px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: 'rgba(15, 23, 42, 0.85)',
+                backdropFilter: 'blur(8px)',
+                color: '#94a3b8',
+                padding: '6px 16px',
+                borderRadius: '20px',
+                fontSize: '11px',
+                fontWeight: '600',
+                pointerEvents: 'none',
+                border: '1px solid #334155'
+              }}
+            >
+              💡 Arraste para girar 360° | Zoom com scroll | Estilo: <strong>{modelStyle.toUpperCase()}</strong>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // --- ControlPanel Component ---
+    function ControlPanel({ modelStyle, setModelStyle, fabricColor, setFabricColor, onImageUpload, onExportPNG, activePiece, selectedElement, onUpdateElementTransform, onRemoveElement }) {
+      const COLOR_PALETTE = [
+        { name: 'Branco', hex: '#ffffff' },
+        { name: 'Preto', hex: '#111111' },
+        { name: 'Cinza Mescla', hex: '#7f8c8d' },
+        { name: 'Azul Marinho', hex: '#0d233a' },
+        { name: 'Vermelho', hex: '#c0392b' },
+        { name: 'Amarelo', hex: '#f1c40f' },
+        { name: 'Verde', hex: '#27ae60' }
+      ];
+
+      return (
+        <div className="re-panel re-panel-right">
+          <h3 className="re-panel-title">
+            <span className="re-panel-title__icon">⚙️</span>
+            Controles do Mockup
+          </h3>
+
+          <div className="re-form-group">
+            <label className="re-label">Modelo de Camiseta</label>
+            <div className="re-model-grid">
+              <button className={`re-model-card ${modelStyle === 'normal' ? 're-model-card--active' : ''}`} onClick={() => setModelStyle('normal')}>
+                <span className="re-model-card__icon">👕</span>
+                <span className="re-model-card__label">Normal</span>
+              </button>
+              <button className={`re-model-card ${modelStyle === 'polo' ? 're-model-card--active' : ''}`} onClick={() => setModelStyle('polo')}>
+                <span className="re-model-card__icon">👔</span>
+                <span className="re-model-card__label">Polo</span>
+              </button>
+              <button className={`re-model-card ${modelStyle === 'babylook' ? 're-model-card--active' : ''}`} onClick={() => setModelStyle('babylook')}>
+                <span className="re-model-card__icon">👚</span>
+                <span className="re-model-card__label">Baby Look</span>
+              </button>
+              <button className={`re-model-card ${modelStyle === 'moletom' ? 're-model-card--active' : ''}`} onClick={() => setModelStyle('moletom')}>
+                <span className="re-model-card__icon">🧥</span>
+                <span className="re-model-card__label">Moletom</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="re-form-group">
+            <label className="re-label">Cor do Tecido</label>
+            <div className="re-color-swatches">
+              {COLOR_PALETTE.map((item) => (
+                <div
+                  key={item.hex}
+                  className={`re-color-swatch ${fabricColor === item.hex ? 're-color-swatch--active' : ''}`}
+                  style={{ backgroundColor: item.hex }}
+                  title={item.name}
+                  onClick={() => setFabricColor(item.hex)}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="re-form-group">
+            <label className="re-label">
+              <span>Upload de Imagem (PNG/JPG/SVG)</span>
+              <span style={{ color: '#f35e0e', fontWeight: 'bold' }}>{activePiece.toUpperCase()}</span>
+            </label>
+            <input type="file" accept="image/png, image/jpeg, image/svg+xml" className="re-input-file" onChange={onImageUpload} />
+          </div>
+
+          {selectedElement && (
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #334155' }}>
+              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#f35e0e', marginBottom: '10px' }}>
+                🎯 Transformar Estampa ({activePiece})
+              </div>
+
+              <div className="re-slider-group">
+                <div className="re-slider-header">
+                  <span>Posição X</span>
+                  <span className="re-slider-val">{Math.round(selectedElement.x * 100)}%</span>
+                </div>
+                <input type="range" min="0.05" max="0.95" step="0.01" value={selectedElement.x} className="re-range" onChange={(e) => onUpdateElementTransform({ x: parseFloat(e.target.value) })} />
+              </div>
+
+              <div className="re-slider-group" style={{ marginTop: '8px' }}>
+                <div className="re-slider-header">
+                  <span>Posição Y</span>
+                  <span className="re-slider-val">{Math.round(selectedElement.y * 100)}%</span>
+                </div>
+                <input type="range" min="0.05" max="0.95" step="0.01" value={selectedElement.y} className="re-range" onChange={(e) => onUpdateElementTransform({ y: parseFloat(e.target.value) })} />
+              </div>
+
+              <div className="re-slider-group" style={{ marginTop: '8px' }}>
+                <div className="re-slider-header">
+                  <span>Escala</span>
+                  <span className="re-slider-val">{Math.round((selectedElement.scale || 1) * 100)}%</span>
+                </div>
+                <input type="range" min="0.2" max="2.5" step="0.05" value={selectedElement.scale || 1} className="re-range" onChange={(e) => onUpdateElementTransform({ scale: parseFloat(e.target.value) })} />
+              </div>
+
+              <div className="re-slider-group" style={{ marginTop: '8px' }}>
+                <div className="re-slider-header">
+                  <span>Rotação</span>
+                  <span className="re-slider-val">{selectedElement.rotation || 0}°</span>
+                </div>
+                <input type="range" min="0" max="360" step="5" value={selectedElement.rotation || 0} className="re-range" onChange={(e) => onUpdateElementTransform({ rotation: parseInt(e.target.value) })} />
+              </div>
+
+              <button className="re-btn re-btn-secondary re-btn-full" style={{ marginTop: '12px', background: '#ef4444', color: '#fff' }} onClick={onRemoveElement}>
+                Remover Estampa 🗑️
+              </button>
+            </div>
+          )}
+
+          <div style={{ marginTop: 'auto', paddingTop: '16px' }}>
+            <button className="re-btn re-btn-export re-btn-full" onClick={onExportPNG}>
+              📸 Exportar Mockup 3D (PNG)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // --- Main TShirtMockupEditor Container ---
+    function TShirtMockupEditor() {
+      const [modelStyle, setModelStyle] = useState('normal');
+      const [fabricColor, setFabricColor] = useState('#ffffff');
+      const [activePiece, setActivePiece] = useState('frente');
+
+      const [patternState, setPatternState] = useState({
+        frente: { imageElement: null, x: 0.5, y: 0.45, scale: 1.0, rotation: 0, width: 220, height: 220 },
+        costas: { imageElement: null, x: 0.5, y: 0.45, scale: 1.0, rotation: 0, width: 220, height: 220 },
+        manga_esquerda: { imageElement: null, x: 0.5, y: 0.5, scale: 1.0, rotation: 0, width: 160, height: 160 },
+        manga_direita: { imageElement: null, x: 0.5, y: 0.5, scale: 1.0, rotation: 0, width: 160, height: 160 },
+        gola: { imageElement: null, x: 0.5, y: 0.5, scale: 1.0, rotation: 0, width: 140, height: 140 }
+      });
+
+      const [textures, setTextures] = useState({});
+      const rendererRef = useRef(null);
+
+      const handleUpdatePieceState = (pieceId, updates) => {
+        setPatternState((prev) => ({
+          ...prev,
+          [pieceId]: { ...prev[pieceId], ...updates }
+        }));
+      };
+
+      const handleImageUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            const aspect = img.width / img.height;
+            const baseWidth = 220;
+            const baseHeight = baseWidth / aspect;
+
+            handleUpdatePieceState(activePiece, {
+              imageElement: img,
+              width: baseWidth,
+              height: baseHeight,
+              x: 0.5,
+              y: 0.45,
+              scale: 1.0,
+              rotation: 0
+            });
+          };
+          img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+      };
+
+      const handleRemoveElement = () => handleUpdatePieceState(activePiece, { imageElement: null });
+
+      const handleTextureUpdate = useCallback((pieceId, canvasSource) => {
+        setTextures((prev) => {
+          if (prev[pieceId] === canvasSource) return prev;
+          return { ...prev, [pieceId]: canvasSource };
+        });
+      }, []);
+
+      const handleCanvasReady = (renderer) => { rendererRef.current = renderer; };
+
+      const handleExportPNG = () => {
+        if (!rendererRef.current) return;
+        const dataURL = rendererRef.current.domElement.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `mockup-3d-${modelStyle}-${Date.now()}.png`;
+        link.href = dataURL;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      return (
+        <div className="react-editor-app">
+          <header className="re-header">
+            <div className="re-header__title">
+              <span>👕 Editor 3D/2D de Mockup de Camisetas</span>
+              <span className="re-header__badge">React Component</span>
+            </div>
+          </header>
+
+          <div className="re-main-layout">
+            <FlatPatternEditor
+              activePiece={activePiece}
+              setActivePiece={setActivePiece}
+              patternState={patternState}
+              onUpdatePieceState={handleUpdatePieceState}
+              onTextureUpdate={handleTextureUpdate}
+            />
+
+            <ThreeDPreviewCanvas
+              modelStyle={modelStyle}
+              fabricColor={fabricColor}
+              textures={textures}
+              onCanvasReady={handleCanvasReady}
+            />
+
+            <ControlPanel
+              modelStyle={modelStyle}
+              setModelStyle={setModelStyle}
+              fabricColor={fabricColor}
+              setFabricColor={setFabricColor}
+              onImageUpload={handleImageUpload}
+              onExportPNG={handleExportPNG}
+              activePiece={activePiece}
+              selectedElement={patternState[activePiece]?.imageElement ? patternState[activePiece] : null}
+              onUpdateElementTransform={(updates) => handleUpdatePieceState(activePiece, updates)}
+              onRemoveElement={handleRemoveElement}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // Render React Application
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<TShirtMockupEditor />);
+  </script>
+</body>
+
+</html>
