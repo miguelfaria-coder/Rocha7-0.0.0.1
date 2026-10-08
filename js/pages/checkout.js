@@ -132,7 +132,9 @@ function initCheckout() {
         };
 
         try {
-          const { criarPedidoSupabase } = await import('../supabase.js');
+          const { criarPedidoSupabase, obterUsuarioAtual } = await import('../supabase.js');
+          const usuario = await obterUsuarioAtual();
+          if (usuario) dadosPedido.usuarioId = usuario.id;
           await criarPedidoSupabase(dadosPedido, summary.items);
           console.log("Pedido salvo com sucesso no Supabase!");
         } catch (err) {
