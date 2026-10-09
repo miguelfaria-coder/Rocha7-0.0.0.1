@@ -12,35 +12,45 @@ document.addEventListener("DOMContentLoaded", () => {
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const btnSubmit = document.getElementById("btn-submit-contato");
-      if (btnSubmit) {
-        btnSubmit.disabled = true;
-        btnSubmit.textContent = "Enviando...";
-      }
-
       const nome = document.getElementById("contato-nome")?.value.trim() || "";
       const email = document.getElementById("contato-email")?.value.trim() || "";
       const telefone = document.getElementById("contato-tel")?.value.trim() || "";
       const mensagem = document.getElementById("contato-msg")?.value.trim() || "";
 
+      // required do HTML não impede que o visitante digite apenas espaços.
+      if (!nome || !email || !telefone || !mensagem) {
+        cart.showToast("Preencha todos os campos antes de enviar.", "erro");
+        return;
+      }
+
+      const btnSubmit = document.getElementById("btn-submit-contato");
+      const textoOriginal = btnSubmit?.textContent || "Enviar Mensagem";
+      if (btnSubmit) {
+        btnSubmit.disabled = true;
+        btnSubmit.textContent = "Enviando...";
+      }
+
       try {
         const { enviarMensagemContatoSupabase } = await import('../supabase.js');
-        await enviarMensagemContatoSupabase({
-          nome,
-          email,
-          telefone,
-          mensagem
-        });
-        cart.showToast(`Obrigado, ${nome}! Sua mensagem foi salva no banco e nossa equipe entrará em contato.`, "sucesso");
+        await enviarMensagemContatoSupabase({ nome, email, telefone, mensagem });
+
+        cart.showToast(
+          `Obrigado, ${nome}! Sua mensagem foi enviada com sucesso. Nossa equipe entrará em contato.`,
+          "sucesso"
+        );
+        // Limpa os campos apenas depois de a API confirmar a gravação.
+        form.reset();
       } catch (err) {
-        console.warn("Mensagem enviada localmente (Supabase aviso):", err.message || err);
-        cart.showToast(`Obrigado, ${nome}! Sua mensagem foi enviada.`, "sucesso");
+        console.error("Erro ao salvar mensagem de contato no Supabase:", err);
+        cart.showToast(
+          "Não foi possível enviar sua mensagem. Verifique sua conexão e tente novamente. Seus dados foram mantidos no formulário.",
+          "erro"
+        );
       } finally {
         if (btnSubmit) {
           btnSubmit.disabled = false;
-          btnSubmit.textContent = "Enviar Mensagem";
+          btnSubmit.textContent = textoOriginal;
         }
-        form.reset();
       }
     });
   }
