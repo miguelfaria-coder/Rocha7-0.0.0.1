@@ -262,16 +262,20 @@ export async function enviarMensagemContatoSupabase(dados) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase não inicializado");
 
-  // Não solicitamos .select(): o formulário só precisa confirmar a inserção.
-  // Isso permite manter a leitura de mensagens bloqueada para visitantes por RLS.
+  const payload = {
+    nome: dados.nome,
+    email: dados.email,
+    telefone: dados.telefone,
+    mensagem: dados.mensagem
+  };
+
+  if (dados.usuarioId) {
+    payload.usuario_id = dados.usuarioId;
+  }
+
   const { error } = await supabase
     .from('mensagens_contato')
-    .insert({
-      nome: dados.nome,
-      email: dados.email,
-      telefone: dados.telefone,
-      mensagem: dados.mensagem
-    });
+    .insert(payload);
 
   if (error) throw error;
   return true;
