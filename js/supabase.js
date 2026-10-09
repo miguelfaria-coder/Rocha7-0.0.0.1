@@ -73,6 +73,36 @@ export async function cadastrarUsuario(email, senha, nome, telefone) {
 }
 
 /**
+ * Autenticação - Login com Conta do Google (OAuth)
+ */
+export async function loginComGoogle() {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error("Supabase não configurado no js/supabase.js");
+  }
+
+  // Redireciona para index.html após autenticação com o Google
+  let redirectUrl = window.location.href;
+  if (redirectUrl.includes('login.html')) {
+    redirectUrl = redirectUrl.replace('login.html', 'index.html');
+  }
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectUrl,
+      queryParams: {
+        access_type: 'offline',
+        prompt: 'select_account'
+      }
+    }
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Autenticação - Encerra a sessão do usuário
  */
 export async function logoutUsuario() {
@@ -91,6 +121,72 @@ export async function obterUsuarioAtual() {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
 }
+
+/**
+ * Perfil - Busca os dados de cadastro e entrega do usuário (CPF, endereço, telefone, etc.)
+ */
+export async function obterPerfilUsuario(userId) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) return null;
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    console.warn("Aviso ao buscar perfil de usuário:", error.message);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Perfil - Atualiza os dados cadastrais (CPF, endereço, telefone, etc.) para compras
+ */
+export async function atualizarPerfilUsuario(userId, dadosPerfil) {
+  const supabase = getSupabaseClient();
+  if (!supabase || !userId) throw new Error("Usuário ou Supabase não configurado");
+
+  const { data, error } = await supabase
+    .from('usuarios')
+    .update(dadosPerfil)
+    .eq('id', userId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Listener automático de autenticação para sincronizar logins do Google e e-mail
+ */
+export function inicializarAuthListener() {
+  const supabase = getSupabaseClient();
+  if (!supabase) return;
+
+  supabase.auth.onAuthStateChange(async (event, session) => {
+    if (session && session.user) {
+      const u = session.user;
+      const meta = u.user_metadata || {};
+      const nome = meta.nome || meta.full_name || meta.name || u.email.split('@')[0];
+      const userObj = {
+        id: u.id,
+        nome: nome,
+        email: u.email,
+        avatar_url: meta.avatar_url || meta.picture || null
+      };
+      localStorage.setItem('r7_user', JSON.stringify(userObj));
+      window.dispatchEvent(new Event('user-state-changed'));
+    } else if (event === 'SIGNED_OUT') {
+      localStorage.removeItem('r7_user');
+      window.dispatchEvent(new Event('user-state-changed'));
+    }
+  });
+}
+
 
 /**
  * Catálogo - Busca os produtos cadastrados no banco Supabase
@@ -185,10 +281,17 @@ if (typeof window !== 'undefined') {
     getSupabaseClient,
     loginUsuario,
     cadastrarUsuario,
+    loginComGoogle,
     logoutUsuario,
     obterUsuarioAtual,
+    obterPerfilUsuario,
+    atualizarPerfilUsuario,
     buscarProdutosSupabase,
     criarPedidoSupabase,
     enviarMensagemContatoSupabase
   };
+
+  // Inicia sincronização de sessão automaticamente
+  inicializarAuthListener();
 }
+

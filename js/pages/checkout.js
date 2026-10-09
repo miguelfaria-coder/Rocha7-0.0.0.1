@@ -50,10 +50,15 @@ function initCheckout() {
               </div>
             </div>
 
+            <div class="form-group" style="margin-bottom: 16px;">
+              <label class="form-label">CPF ou CNPJ para Nota Fiscal / Faturamento</label>
+              <input type="text" class="form-input" id="check-cpf" placeholder="000.000.000-00" required>
+            </div>
+
             <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom: 16px;">
               <div class="form-group">
-                <label class="form-label">Endereço de Entrega</label>
-                <input type="text" class="form-input" id="check-rua" placeholder="Rua, número, bairro..." required>
+                <label class="form-label">Endereço de Entrega Completo</label>
+                <input type="text" class="form-input" id="check-rua" placeholder="Rua, número, complemento, bairro..." required>
               </div>
               <div class="form-group">
                 <label class="form-label">CEP</label>
@@ -118,12 +123,14 @@ function initCheckout() {
         const telefone = document.getElementById("check-tel")?.value || "";
         const endereco = document.getElementById("check-rua")?.value || "";
         const cep = document.getElementById("check-cep")?.value || "";
+        const cpf = document.getElementById("check-cpf")?.value || "";
         const formaPagamento = document.getElementById("check-pagamento")?.value || "pix";
 
         const dadosPedido = {
           nome,
           email,
           telefone,
+          cpf,
           endereco,
           cep,
           formaPagamento,
@@ -132,9 +139,23 @@ function initCheckout() {
         };
 
         try {
-          const { criarPedidoSupabase, obterUsuarioAtual } = await import('../supabase.js');
+          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
-          if (usuario) dadosPedido.usuarioId = usuario.id;
+          if (usuario) {
+            dadosPedido.usuarioId = usuario.id;
+            // Salva / atualiza dados de compra no perfil do usuário
+            try {
+              await atualizarPerfilUsuario(usuario.id, {
+                nome,
+                telefone,
+                cpf,
+                endereco,
+                cep
+              });
+            } catch (errPerfil) {
+              console.warn("Aviso ao atualizar perfil do usuário:", errPerfil);
+            }
+          }
           await criarPedidoSupabase(dadosPedido, summary.items);
           console.log("Pedido salvo com sucesso no Supabase!");
         } catch (err) {
@@ -153,6 +174,44 @@ function initCheckout() {
         cart.clearCart();
       });
     }
+
+    // Pré-preenchimento inteligente dos dados da conta se usuário estiver logado
+    (async () => {
+      try {
+        const { obterUsuarioAtual, obterPerfilUsuario } = await import('../supabase.js');
+        const user = await obterUsuarioAtual();
+        if (user) {
+          const perfil = await obterPerfilUsuario(user.id);
+          const meta = user.user_metadata || {};
+          const nomeEl = document.getElementById("check-nome");
+          const emailEl = document.getElementById("check-email");
+          const telEl = document.getElementById("check-tel");
+          const cpfEl = document.getElementById("check-cpf");
+          const ruaEl = document.getElementById("check-rua");
+          const cepEl = document.getElementById("check-cep");
+
+          if (nomeEl && (perfil?.nome || meta.nome || meta.full_name)) {
+            nomeEl.value = perfil?.nome || meta.nome || meta.full_name;
+          }
+          if (emailEl && (perfil?.email || user.email)) {
+            emailEl.value = perfil?.email || user.email;
+          }
+          if (telEl && perfil?.telefone) telEl.value = perfil.telefone;
+          if (cpfEl && perfil?.cpf) cpfEl.value = perfil.cpf;
+          if (ruaEl && perfil?.endereco) ruaEl.value = perfil.endereco;
+          if (cepEl && perfil?.cep) cepEl.value = perfil.cep;
+        } else {
+          const localUser = localStorage.getItem('r7_user');
+          if (localUser) {
+            const parsed = JSON.parse(localUser);
+            if (document.getElementById("check-nome") && parsed.nome) document.getElementById("check-nome").value = parsed.nome;
+            if (document.getElementById("check-email") && parsed.email) document.getElementById("check-email").value = parsed.email;
+          }
+        }
+      } catch (e) {
+        // Ignora silenciosamente se offline ou local
+      }
+    })();
   }
 
   renderView();

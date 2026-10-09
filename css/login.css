@@ -1,235 +1,521 @@
+/* login.css — Design de Card Animado (Login ↔ Cadastro) */
 /* Utiliza as variáveis definidas em variables.css */
 
-.login-page {
-    background-color: var(--cor-escura);
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--esp-24);
-    font-family: var(--fonte-corpo);
-    color: var(--cor-texto-claro);
-    margin: 0;
-}
-
+/* ============================================================
+   LAYOUT PRINCIPAL — Container fullscreen escuro
+   ============================================================ */
 .login-container {
     background-color: var(--cor-escura-painel);
     display: flex;
-    max-width: 1000px;
     width: 100%;
-    min-height: 600px;
-    border-radius: var(--radius-xl);
+    height: 100vh;
+    justify-content: center;
+    align-items: center;
     overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
-/* Lado Esquerdo - Branding */
-.login-brand {
-    flex: 1;
-    background: linear-gradient(135deg, var(--cor-escura-suave) 0%, var(--cor-escura) 100%);
-    padding: var(--esp-48);
+/* Seta de voltar */
+.backarrow {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 10;
     display: flex;
-    flex-direction: column;
+    align-items: center;
     justify-content: center;
-    position: relative;
-    border-right: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.brand-content {
-    position: relative;
-    z-index: 2;
-}
-
-.logo {
-    display: block;
-    font-family: var(--fonte-titulo);
-    font-size: var(--tam-3xl);
-    font-weight: 800;
-    color: var(--cor-texto-claro);
-    text-decoration: none;
-    margin-bottom: var(--esp-40);
-}
-
-.logo-highlight {
-    color: var(--cor-primaria);
-}
-
-.brand-content h1 {
-    font-family: var(--fonte-titulo);
-    font-size: var(--tam-4xl);
-    line-height: 1.2;
-    margin-bottom: var(--esp-16);
-    color: var(--cor-texto-claro);
-}
-
-.brand-content p {
-    font-size: var(--tam-lg);
-    color: var(--cor-texto-mutado);
-    line-height: 1.6;
-}
-
-/* Lado Direito - Form */
-.login-form-wrapper {
-    flex: 1;
-    padding: var(--esp-48);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    background-color: var(--cor-escura-painel);
-}
-
-.form-header {
-    margin-bottom: var(--esp-32);
-}
-
-.form-header h2 {
-    font-family: var(--fonte-titulo);
-    font-size: var(--tam-3xl);
-    color: var(--cor-texto-claro);
-    margin-bottom: var(--esp-8);
-}
-
-.form-header p {
-    color: var(--cor-texto-mutado);
-}
-
-/* Inputs */
-.input-group {
-    margin-bottom: var(--esp-24);
-}
-
-.input-group label {
-    display: block;
-    margin-bottom: var(--esp-8);
-    font-weight: 500;
-    font-size: var(--tam-sm);
-    color: var(--cor-texto-mutado);
-}
-
-.input-group input {
-    width: 100%;
-    padding: 14px 16px;
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius-md);
-    color: var(--cor-texto-claro);
-    font-family: var(--fonte-corpo);
-    font-size: var(--tam-base);
-    transition: var(--trans-normal);
-}
-
-.input-group input:focus {
-    outline: none;
-    border-color: var(--cor-primaria);
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-full);
     background-color: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all var(--trans-normal);
+}
+
+.backarrow:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+    border-color: var(--cor-primaria);
+    transform: scale(1.08);
+}
+
+.backarrow img {
+    width: 20px;
+    height: 20px;
+    filter: brightness(0) invert(1);
+    transition: transform var(--trans-fast);
+}
+
+/* ============================================================
+   CARD PRINCIPAL — Glassmorphism com animação de slide
+   ============================================================ */
+.card {
+    width: 85%;
+    max-width: 1100px;
+    height: 85vh;
+    max-height: 730px;
+    background-color: rgba(255, 255, 255, 0.06);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-xl);
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+/* Background degradê animado */
+.card::after {
+    width: 100%;
+    height: 100%;
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-image: url(../assets/img/degrade.png);
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================================
+   LADOS ESQUERDO E DIREITO
+   ============================================================ */
+.esquerda,
+.direita {
+    width: 50%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+    padding: var(--esp-32);
+}
+
+/* ============================================================
+   FORMULÁRIOS E PAINÉIS CTA
+   ============================================================ */
+.FormLogin,
+.facaLogin,
+.FormCadastro,
+.facaCadastro {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Títulos */
+.FormLogin h1,
+.FormCadastro h1,
+.facaLogin h1,
+.facaCadastro h1 {
+    color: #ffffff;
+    margin-bottom: 18px;
+    font-family: var(--fonte-titulo);
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+}
+
+/* Parágrafos CTA */
+.facaLogin p,
+.facaCadastro p {
+    margin-bottom: 20px;
+    max-width: 360px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.75);
+    font-size: var(--tam-base);
+    line-height: 1.5;
+}
+
+/* ============================================================
+   FORMULÁRIOS — Inputs e botões
+   ============================================================ */
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 400px;
+}
+
+form input,
+form button {
+    padding: 14px 20px;
+    border-radius: var(--radius-md);
+    border: none;
+    outline: none;
+    font-size: var(--tam-base);
+    font-family: var(--fonte-corpo);
+    width: 100%;
+}
+
+form input {
+    background-color: rgba(255, 255, 255, 0.12);
+    color: rgba(255, 255, 255, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all var(--trans-normal);
+}
+
+form input:focus {
+    background-color: rgba(255, 255, 255, 0.18);
+    border-color: var(--cor-primaria);
     box-shadow: 0 0 0 3px var(--cor-primaria-sombra);
 }
 
-.input-group input::placeholder {
-    color: rgba(255, 255, 255, 0.2);
+form input::placeholder {
+    color: rgba(255, 255, 255, 0.4);
 }
 
-.error-message {
+/* Mensagens de erro inline */
+.field-error {
     display: block;
-    color: var(--cor-perigo);
+    color: #ff6b6b;
     font-size: var(--tam-xs);
-    margin-top: var(--esp-4);
-    min-height: 14px;
+    min-height: 4px;
+    margin-top: -4px;
+    padding-left: 4px;
+    transition: all var(--trans-fast);
 }
 
-/* Ações Adicionais */
-.form-actions-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--esp-32);
-}
-
-.remember-me {
-    display: flex;
-    align-items: center;
-    gap: var(--esp-8);
-    font-size: var(--tam-sm);
-    color: var(--cor-texto-mutado);
-    cursor: pointer;
-}
-
-.remember-me input {
-    accent-color: var(--cor-primaria);
-}
-
-.forgot-password {
-    font-size: var(--tam-sm);
-    color: var(--cor-primaria);
-    text-decoration: none;
-    font-weight: 500;
-    transition: var(--trans-fast);
-}
-
-.forgot-password:hover {
-    color: var(--cor-primaria-hover);
-    text-decoration: underline;
-}
-
-/* Botões */
+/* Botão principal (Entrar / Cadastrar) */
 .btn-login {
     width: 100%;
     padding: 16px;
-    background-color: var(--cor-primaria);
-    color: white;
+    background: linear-gradient(135deg, var(--cor-primaria) 0%, #d94e00 100%);
+    color: #ffffff;
     border: none;
     border-radius: var(--radius-md);
     font-size: var(--tam-base);
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
-    transition: var(--trans-normal);
-    box-shadow: var(--sombra-orange);
+    transition: all var(--trans-normal);
+    box-shadow: 0 6px 20px rgba(243, 94, 14, 0.35);
+    margin-top: 8px;
+    letter-spacing: 0.02em;
 }
 
 .btn-login:hover {
-    background-color: var(--cor-primaria-hover);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(243, 94, 14, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 28px rgba(243, 94, 14, 0.5);
 }
 
 .btn-login:active {
     transform: translateY(0);
 }
 
-/* Footer do Form */
-.form-footer {
-    margin-top: var(--esp-32);
+.btn-login:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Divisor "ou continue com" */
+.divisor-ou {
+    display: flex;
+    align-items: center;
     text-align: center;
-    color: var(--cor-texto-mutado);
+    margin: 4px 0;
+    width: 100%;
+}
+
+.divisor-ou::before,
+.divisor-ou::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.divisor-ou span {
+    padding: 0 10px;
+    font-size: var(--tam-xs);
+    color: rgba(255, 255, 255, 0.65);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+/* Botão de Login / Cadastro com Google */
+.btn-google {
+    width: 100%;
+    padding: 13px 20px;
+    background-color: #ffffff;
+    color: #3c4043;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: var(--radius-md);
     font-size: var(--tam-sm);
-}
-
-.form-footer a {
-    color: var(--cor-primaria);
-    text-decoration: none;
     font-weight: 600;
-    transition: var(--trans-fast);
+    font-family: var(--fonte-corpo);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all var(--trans-normal);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
 }
 
-.form-footer a:hover {
-    text-decoration: underline;
-    color: var(--cor-primaria-hover);
+.btn-google:hover {
+    background-color: #f8f9fa;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+    color: #202124;
 }
 
-/* Responsividade */
-@media (max-width: 768px) {
-    .login-container {
+.btn-google:active {
+    transform: translateY(0);
+}
+
+.btn-google:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-google .google-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+
+/* Botão CTA "Faça Login" / "Faça Cadastro" */
+.btn-faca {
+    width: 100%;
+    max-width: 300px;
+    padding: 16px 32px;
+    background-color: rgba(255, 255, 255, 0.95);
+    color: var(--cor-escura);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: var(--tam-base);
+    font-weight: 700;
+    cursor: pointer;
+    transition: all var(--trans-normal);
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.15);
+}
+
+.btn-faca:hover {
+    background-color: #ffffff;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(255, 255, 255, 0.25);
+}
+
+.btn-faca:active {
+    transform: translateY(0);
+}
+
+/* ============================================================
+   POSICIONAMENTO DOS PAINÉIS CTA (sobrepostos)
+   ============================================================ */
+.facaLogin,
+.facaCadastro {
+    position: absolute;
+}
+
+/* ============================================================
+   ESTADO: loginActive — Mostra Login, esconde Cadastro
+   ============================================================ */
+.card.loginActive .facaLogin {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card.loginActive .facaCadastro {
+    transform: translateX(0);
+    transition: all 0.4s 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+}
+
+.card.loginActive .FormLogin {
+    transition: all 0.4s 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+}
+
+.card.loginActive .FormCadastro {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card.loginActive::after {
+    transform: translateX(50%);
+}
+
+/* ============================================================
+   ESTADO: cadastroActive — Mostra Cadastro, esconde Login
+   ============================================================ */
+.card.cadastroActive .facaCadastro {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card.cadastroActive .facaLogin {
+    transform: translateX(0);
+    transition: all 0.4s 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+}
+
+.card.cadastroActive .FormCadastro {
+    transition: all 0.4s 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    opacity: 1;
+}
+
+.card.cadastroActive .FormLogin {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card.cadastroActive::after {
+    transform: translateX(-50%);
+}
+
+/* ============================================================
+   TRANSIÇÕES PADRÃO (estado inicial)
+   ============================================================ */
+.facaCadastro {
+    transition: all 0.3s 0s;
+    transform: translateX(200%);
+    opacity: 0;
+}
+
+.FormLogin {
+    opacity: 0;
+    transition: all 0.3s 0s;
+}
+
+.facaLogin {
+    transition: all 0.3s 0s;
+    transform: translateX(-200%);
+    opacity: 0;
+}
+
+.FormCadastro {
+    opacity: 0;
+    transition: all 0.3s 0s;
+}
+
+/* ============================================================
+   ALERT DE SUCESSO / ERRO
+   ============================================================ */
+.login-alert {
+    width: 100%;
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: var(--tam-sm);
+    text-align: center;
+    margin-bottom: 12px;
+    display: none;
+}
+
+.login-alert.alert-error {
+    background-color: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ff6b6b;
+    display: block;
+}
+
+.login-alert.alert-success {
+    background-color: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #6ee7b7;
+    display: block;
+}
+
+/* ============================================================
+   RESPONSIVIDADE
+   ============================================================ */
+@media (max-width: 900px) {
+    .card {
+        width: 92%;
+        height: 90vh;
+        max-height: none;
         flex-direction: column;
-        min-height: auto;
     }
-    
-    .login-brand {
-        padding: var(--esp-32);
-        border-right: none;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
+    .esquerda,
+    .direita {
+        width: 100%;
+        height: 50%;
+        padding: var(--esp-24);
     }
-    
-    .login-form-wrapper {
-        padding: var(--esp-32);
+
+    form input,
+    form button {
+        max-width: 100%;
+    }
+
+    .FormLogin h1,
+    .FormCadastro h1,
+    .facaLogin h1,
+    .facaCadastro h1 {
+        font-size: clamp(1.6rem, 5vw, 2.2rem);
+        margin-bottom: 20px;
+    }
+
+    .facaLogin p,
+    .facaCadastro p {
+        font-size: var(--tam-sm);
+    }
+
+    .card.loginActive::after {
+        transform: translateY(50%);
+    }
+
+    .card.cadastroActive::after {
+        transform: translateY(-50%);
+    }
+
+    .facaCadastro {
+        transform: translateY(200%);
+    }
+
+    .facaLogin {
+        transform: translateY(-200%);
+    }
+
+    .card.loginActive .facaCadastro {
+        transform: translateY(0);
+    }
+
+    .card.cadastroActive .facaLogin {
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        padding: var(--esp-12);
+    }
+
+    .card {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+    }
+
+    .esquerda,
+    .direita {
+        padding: var(--esp-16);
+    }
+
+    .backarrow {
+        top: 12px;
+        left: 12px;
+    }
+
+    form input,
+    form button {
+        padding: 12px 16px;
+        font-size: var(--tam-sm);
     }
 }

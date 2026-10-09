@@ -1,0 +1,14 @@
+# Dependências
+node_modules/
+
+# Arquivos compactados e temporários
+*.zip
+*.rar
+*.tar.gz
+*.7z
+_telas_temp/
+
+# Logs e arquivos de sistema
+*.log
+.DS_Store
+Thumbs.db

@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Phenomenal</title>
+    <title>Login & Cadastro - Rocha7</title>
+    <meta name="description" content="Acesse sua conta Rocha7 ou cadastre-se para fazer pedidos de camisetas, moletons e canecas personalizadas.">
+    <link rel="icon" type="image/png" href="logo.png">
     <!-- CSS Existentes -->
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/variables.css">
@@ -11,52 +13,80 @@
     <!-- CSS Específico do Login -->
     <link rel="stylesheet" href="css/login.css">
 </head>
-<body class="login-page">
+<body>
     <div class="login-container">
-        <!-- Lado Esquerdo (Branding/Apresentação) -->
-        <div class="login-brand">
-            <div class="brand-content">
-                <a href="index.html" class="logo">
-                    <span class="logo-highlight">Phenomenal</span>.
-                </a>
-                <h1>Bem-vindo de volta!</h1>
-                <p>Acesse o painel para gerenciar seus projetos de forma incrível.</p>
-            </div>
-        </div>
-        
-        <!-- Lado Direito (Formulário) -->
-        <div class="login-form-wrapper">
-            <div class="form-header">
-                <h2>Login</h2>
-                <p>Por favor, insira suas credenciais abaixo.</p>
+        <a href="index.html" class="backarrow" title="Voltar para Home">
+            <img src="assets/img/backarrow.png" alt="Voltar">
+        </a>
+        <div class="card loginActive">
+            <!-- Lado Esquerdo -->
+            <div class="esquerda">
+                <div class="FormLogin">
+                    <h1>Login</h1>
+                    <form id="loginForm">
+                        <input type="email" id="login-email" name="email" placeholder="E-mail" required>
+                        <span class="field-error" id="login-email-error"></span>
+                        <input type="password" id="login-senha" name="senha" placeholder="Senha" required>
+                        <span class="field-error" id="login-senha-error"></span>
+                        <button type="submit" class="btn-primary btn-login" id="btn-login-submit">Entrar</button>
+
+                        <div class="divisor-ou">
+                            <span>ou continue com</span>
+                        </div>
+
+                        <button type="button" class="btn-google" id="btn-google-login">
+                            <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                            </svg>
+                            <span>Entrar com o Google</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="facaLogin">
+                    <h1>Já tem <br>uma conta?</h1>
+                    <p>Já possui uma conta? Faça login agora!</p>
+                    <button class="LoginButton btn-primary btn-faca">Faça Login</button>
+                </div>
             </div>
             
-            <!-- O action aponta para o PHP, mas o envio é via AJAX no login.js -->
-            <form id="loginForm" action="backend/processa_login.php" method="POST">
-                <div class="input-group">
-                    <label for="email">E-mail</label>
-                    <input type="email" id="email" name="email" placeholder="exemplo@email.com">
-                    <span class="error-message" id="email-error"></span>
+            <!-- Lado Direito -->
+            <div class="direita">
+                <div class="FormCadastro">
+                    <h1>Cadastro</h1>
+                    <form id="cadastroForm">
+                        <input type="text" id="cadastro-nome" name="nome" placeholder="Nome Completo" required>
+                        <span class="field-error" id="cadastro-nome-error"></span>
+                        <input type="email" id="cadastro-email" name="email" placeholder="E-mail" required>
+                        <span class="field-error" id="cadastro-email-error"></span>
+                        <input type="password" id="cadastro-senha" name="senha" placeholder="Senha" required>
+                        <span class="field-error" id="cadastro-senha-error"></span>
+                        <input type="password" id="cadastro-confirmar" name="confirmar" placeholder="Confirmar Senha" required>
+                        <span class="field-error" id="cadastro-confirmar-error"></span>
+                        <button type="submit" class="btn-primary btn-login" id="btn-cadastro-submit">Cadastrar</button>
+
+                        <div class="divisor-ou">
+                            <span>ou continue com</span>
+                        </div>
+
+                        <button type="button" class="btn-google" id="btn-google-cadastro">
+                            <svg class="google-icon" width="20" height="20" viewBox="0 0 24 24">
+                                <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+                                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"/>
+                                <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.03 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+                                <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+                            </svg>
+                            <span>Cadastrar com o Google</span>
+                        </button>
+                    </form>
                 </div>
-                
-                <div class="input-group">
-                    <label for="senha">Senha</label>
-                    <input type="password" id="senha" name="senha" placeholder="••••••••">
-                    <span class="error-message" id="senha-error"></span>
+                <div class="facaCadastro">
+                    <h1>Não tem <br>uma conta?</h1>
+                    <p>Não possui uma conta? Cadastre-se agora!</p>
+                    <button class="CadastroButton btn-primary btn-faca">Faça Cadastro</button>
                 </div>
-                
-                <div class="form-actions-row">
-                    <label class="remember-me">
-                        <input type="checkbox" name="lembrar"> Lembrar-me
-                    </label>
-                    <a href="#" class="forgot-password">Esqueci a senha</a>
-                </div>
-                
-                <button type="submit" class="btn-primary btn-login">Entrar no Sistema</button>
-            </form>
-            
-            <div class="form-footer">
-                <p>Não tem uma conta? <a href="#" id="toggleCadastro">Cadastre-se</a></p>
             </div>
         </div>
     </div>
