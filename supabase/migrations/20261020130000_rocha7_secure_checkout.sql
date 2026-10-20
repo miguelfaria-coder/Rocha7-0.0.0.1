@@ -171,6 +171,9 @@ BEGIN
 END;
 $function$;
 
+GRANT SELECT ON TABLE public.produtos TO service_role;
+GRANT INSERT ON TABLE public.pedidos, public.itens_pedido TO service_role;
+
 REVOKE EXECUTE ON FUNCTION public.rocha7_create_order_secure(jsonb, jsonb, uuid, uuid)
 FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.rocha7_create_order_secure(jsonb, jsonb, uuid, uuid)
