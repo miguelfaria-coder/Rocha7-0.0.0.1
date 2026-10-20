@@ -79,14 +79,16 @@ Deno.serve(async (req: Request) => {
     return json(400, { error: "Corpo da solicitação inválido." }, origin);
   }
 
-  const nome = trimmed(body.nome, 150);
-  const email = trimmed(body.email, 254).toLowerCase();
-  const telefone = trimmed(body.telefone, 30);
-  const mensagem = trimmed(body.mensagem, 10000);
-  const phoneDigits = telefone.replace(/\D/g, "");
-  if (nome.length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-      telefone.length < 8 || phoneDigits.length < 8 || phoneDigits.length > 15 ||
-      mensagem.length < 1 || /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/.test(mensagem)) {
+  const nome = trimmed(body.nome);
+  const email = trimmed(body.email).toLowerCase();
+  const telefone = trimmed(body.telefone);
+  const mensagem = trimmed(body.mensagem);
+  const phoneDigits = telefone.replace(/\\D/g, "");
+  if (nome.length < 2 || nome.length > 150 ||
+      email.length < 5 || email.length > 254 || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email) ||
+      telefone.length < 8 || telefone.length > 30 || phoneDigits.length < 8 || phoneDigits.length > 15 ||
+      mensagem.length < 1 || mensagem.length > 10000 ||
+      /[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]/.test(mensagem)) {
     return json(400, { error: "Confira nome, e-mail, telefone e mensagem." }, origin);
   }
 
