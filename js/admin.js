@@ -201,9 +201,9 @@ function renderDashboard(data) {
 
 function renderRecentOrders(orders) {
   if (!orders.length) return '<div class="empty-state">Ainda não há pedidos registrados.</div>';
-  let html = '<div class="table-scroll"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+  let html = '<div class="table-scroll"><table><thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Total</th><th>Status do pedido</th><th>Pagamento</th></tr></thead><tbody>';
   orders.forEach((order) => {
-    html += '<tr><td><strong>' + escapeHtml(shortId(order.id)) + '</strong></td><td>' + escapeHtml(order.nome_cliente) + '<span class="table-sub">' + escapeHtml(order.email_cliente) + '</span></td><td>' + escapeHtml(formatDate(order.criado_em)) + '</td><td><strong>' + escapeHtml(formatMoney(order.valor_total)) + '</strong></td><td>' + statusBadge(order.status) + '</td></tr>';
+    html += '<tr><td><strong>' + escapeHtml(shortId(order.id)) + '</strong></td><td>' + escapeHtml(order.nome_cliente) + '<span class="table-sub">' + escapeHtml(order.email_cliente) + '</span></td><td>' + escapeHtml(formatDate(order.criado_em)) + '</td><td><strong>' + escapeHtml(formatMoney(order.valor_total)) + '</strong></td><td>' + statusBadge(order.status) + '</td><td>' + paymentStatusBadge(order.pagamento_status) + '</td></tr>';
   });
   return html + '</tbody></table></div>';
 }
@@ -213,7 +213,7 @@ function renderOrders(orders) {
     $("#view-container").innerHTML = '<section class="table-panel"><div class="empty-state">Nenhum pedido encontrado.</div></section>';
     return;
   }
-  let html = '<section class="table-panel"><div class="table-head"><h2>Pedidos registrados</h2><span class="badge">' + orders.length + ' exibidos</span></div><div class="table-scroll"><table><thead><tr><th>Pedido / data</th><th>Cliente</th><th>Total</th><th>Status</th><th>Detalhes</th></tr></thead><tbody>';
+  let html = '<section class="table-panel"><div class="table-head"><h2>Pedidos registrados</h2><span class="badge">' + orders.length + ' exibidos</span></div><div class="table-scroll"><table><thead><tr><th>Pedido / data</th><th>Cliente</th><th>Total</th><th>Status do pedido</th><th>Pagamento</th><th>Detalhes</th></tr></thead><tbody>';
   orders.forEach((order) => {
     const id = escapeHtml(order.id);
     const options = STATUS_OPTIONS.map((option) => '<option value="' + option[0] + '"' + (order.status === option[0] ? " selected" : "") + '>' + option[1] + '</option>').join("");
@@ -221,16 +221,37 @@ function renderOrders(orders) {
     let detail = '<div><strong>Entrega:</strong> ' + escapeHtml(order.endereco_entrega) + ', CEP ' + escapeHtml(order.cep) + '</div>';
     detail += '<div><strong>Telefone:</strong> ' + escapeHtml(order.telefone_whatsapp) + '</div>';
     detail += '<div><strong>CPF/CNPJ:</strong> ' + escapeHtml(order.cpf_cliente || "Não informado") + '</div>';
-    detail += '<div><strong>Pagamento:</strong> ' + escapeHtml(order.forma_pagamento) + ' • <strong>Tipo:</strong> ' + escapeHtml(order.tipo_pedido) + '</div>';
+    detail += '<div><strong>Forma registrada:</strong> ' + escapeHtml(order.forma_pagamento) + ' • <strong>Tipo:</strong> ' + escapeHtml(order.tipo_pedido) + '</div>';
+    detail += '<div><strong>Situação do pagamento:</strong> ' + paymentStatusBadge(order.pagamento_status) + '</div>';
+    if (order.stripe_payment_method_type) detail += '<div><strong>Método Stripe:</strong> ' + escapeHtml(paymentMethodLabel(order.stripe_payment_method_type)) + '</div>';
+    if (order.pagamento_confirmado_em) detail += '<div><strong>Confirmado em:</strong> ' + escapeHtml(formatDate(order.pagamento_confirmado_em)) + '</div>';
     if (order.observacoes) detail += '<div><strong>Observações:</strong> ' + escapeHtml(order.observacoes) + '</div>';
     detail += '<ul>' + items.map((item) => '<li>' + escapeHtml(item.quantidade) + '× ' + escapeHtml(item.nome_produto) + ' — ' + escapeHtml(item.tamanho) + ', ' + escapeHtml(item.cor) + ' (' + escapeHtml(formatMoney(item.subtotal)) + ')</li>').join("") + '</ul>';
     html += '<tr><td><strong>' + escapeHtml(shortId(order.id)) + '</strong><span class="table-sub">' + escapeHtml(formatDate(order.criado_em)) + '</span></td>';
     html += '<td>' + escapeHtml(order.nome_cliente) + '<span class="table-sub">' + escapeHtml(order.email_cliente) + '</span></td><td><strong>' + escapeHtml(formatMoney(order.valor_total)) + '</strong></td>';
     html += '<td><div class="row-actions"><select class="status-select" aria-label="Status do pedido ' + id + '" data-status-order="' + id + '">' + options + '</select><button class="button small-button" type="button" data-save-order="' + id + '">Salvar</button></div></td>';
+    html += '<td>' + paymentStatusBadge(order.pagamento_status) + '</td>';
     html += '<td><details><summary>Ver dados</summary><div class="order-detail">' + detail + '</div></details></td></tr>';
   });
   html += '</tbody></table></div></section>';
   $("#view-container").innerHTML = html;
+}
+
+function paymentStatusBadge(status) {
+  const labels = {
+    pendente: "Aguardando pagamento",
+    pago: "Pago",
+    falhou: "Falhou / expirou",
+    estornado: "Estornado"
+  };
+  const normalized = Object.prototype.hasOwnProperty.call(labels, status) ? status : "pendente";
+  const className = normalized === "pago" ? "badge" : "badge pending";
+  return '<span class="' + className + '">' + escapeHtml(labels[normalized]) + '</span>';
+}
+
+function paymentMethodLabel(method) {
+  const labels = { card: "Cartão", pix: "Pix", boleto: "Boleto" };
+  return labels[method] || method;
 }
 
 function statusBadge(status) {
