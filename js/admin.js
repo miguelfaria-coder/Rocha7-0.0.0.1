@@ -319,7 +319,7 @@ async function handleViewClick(event) {
   }
   if (button.dataset.saveOrder) {
     const id = button.dataset.saveOrder;
-    const select = $("[data-status-order]").find((element) => element.dataset.statusOrder === id);
+    const select = Array.from(document.querySelectorAll("[data-status-order]")).find((element) => element.dataset.statusOrder === id);
     if (!select) return;
     button.disabled = true;
     button.textContent = "Salvando…";
