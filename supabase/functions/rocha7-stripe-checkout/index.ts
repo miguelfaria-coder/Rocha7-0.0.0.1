@@ -40,10 +40,29 @@ Deno.serve(async (req: Request) => {
   });
   const { data: pedido, error: pedidoError } = await admin
     .from("pedidos")
-    .select("id, valor_total, nome, email, forma_pagamento")
+    .select("id, valor_total, nome, email, forma_pagamento, status_pagamento, stripe_session_id")
     .eq("id", pedidoId)
     .maybeSingle();
   if (pedidoError || !pedido) return json(404, { error: "Pedido não encontrado." });
+
+  if (pedido.status_pagamento === "pago") return json(409, { error: "Este pedido já está pago." });
+
+  if (pedido.stripe_session_id) {
+    try {
+      const existingResponse = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(pedido.stripe_session_id), {
+        headers: { "Authorization": "Bearer " + STRIPE_SECRET_KEY },
+      });
+      const existing = await existingResponse.json();
+      if (existingResponse.ok && existing.status === "open" && typeof existing.url === "string") {
+        return json(200, { url: existing.url, sessionId: existing.id });
+      }
+      if (existingResponse.ok && existing.status === "complete" && existing.payment_status !== "unpaid") {
+        return json(409, { error: "Este pagamento está sendo confirmado. Aguarde antes de tentar novamente." });
+      }
+    } catch {
+      return json(502, { error: "Não foi possível verificar a sessão de pagamento anterior." });
+    }
+  }
 
   const amount = Math.round(Number(pedido.valor_total) * 100);
   if (!Number.isSafeInteger(amount) || amount < 100 || amount > 100000000) {
@@ -73,7 +92,7 @@ Deno.serve(async (req: Request) => {
       headers: {
         "Authorization": `Bearer ${STRIPE_SECRET_KEY}`,
         "Content-Type": "application/x-www-form-urlencoded",
-        "Idempotency-Key": `rocha7-checkout-${String(pedido.id).replace(/[^a-zA-Z0-9_-]/g, "")}-${forma}`,
+        "Idempotency-Key": "rocha7-checkout-" + crypto.randomUUID(),
       },
       body: params,
     });
@@ -88,7 +107,6 @@ Deno.serve(async (req: Request) => {
   }
 
   const { error: updateError } = await admin.from("pedidos").update({
-    status_pagamento: "pendente",
     stripe_session_id: session.id,
     forma_pagamento: forma,
   }).eq("id", pedido.id);
