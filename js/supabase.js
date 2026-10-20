@@ -208,52 +208,42 @@ export async function buscarProdutosSupabase() {
 }
 
 /**
- * Pedidos - Registra um novo pedido no Supabase
+ * Pedidos - Usa o endpoint seguro do servidor.
+ * O navegador envia apenas escolhas e quantidades; nomes/preços são recalculados no backend.
  */
 export async function criarPedidoSupabase(dadosPedido, itens) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase não inicializado");
 
-  // 1. Inserir o pedido principal na tabela 'pedidos'
-  const { data: pedidoCriado, error: erroPedido } = await supabase
-    .from('pedidos')
-    .insert([{
-      usuario_id: dadosPedido.usuarioId || null,
-      nome_cliente: dadosPedido.nome,
-      email_cliente: dadosPedido.email,
-      telefone_whatsapp: dadosPedido.telefone,
-      cpf_cliente: dadosPedido.cpf || null,
-      endereco_entrega: dadosPedido.endereco,
-      cep: dadosPedido.cep,
-      forma_pagamento: dadosPedido.formaPagamento,
-      tipo_pedido: dadosPedido.tipoPedido || 'varejo',
-      valor_total: dadosPedido.valorTotal,
-      observacoes: dadosPedido.observacoes || null
-    }])
-    .select()
-    .single();
+  const { data, error } = await supabase.functions.invoke("rocha7-create-order", {
+    body: {
+      order: {
+        nome: dadosPedido.nome,
+        email: dadosPedido.email,
+        telefone: dadosPedido.telefone,
+        cpf: dadosPedido.cpf,
+        endereco: dadosPedido.endereco,
+        cep: dadosPedido.cep,
+        formaPagamento: dadosPedido.formaPagamento,
+        tipoPedido: dadosPedido.tipoPedido || "varejo",
+        observacoes: dadosPedido.observacoes || ""
+      },
+      items: itens.map(item => ({
+        id: item.id,
+        tamanho: item.tamanho,
+        cor: item.cor,
+        quantidade: item.quantidade,
+        customDesign: item.customDesign || null
+      })),
+      idempotencyKey: dadosPedido.idempotenciaId
+    }
+  });
 
-  if (erroPedido) throw erroPedido;
-
-  // 2. Mapear os itens para inserção na tabela 'itens_pedido'
-  const itensFormatados = itens.map(item => ({
-    pedido_id: pedidoCriado.id,
-    produto_id: item.id && item.id.startsWith('prod-') ? item.id : null,
-    nome_produto: item.nome,
-    tamanho: item.tamanho,
-    cor: item.cor,
-    quantidade: item.quantidade,
-    preco_unitario: item.precoUnitario,
-    detalhes_design: item.customDesign || null
-  }));
-
-  const { error: erroItens } = await supabase
-    .from('itens_pedido')
-    .insert(itensFormatados);
-
-  if (erroItens) throw erroItens;
-
-  return pedidoCriado;
+  if (error) throw error;
+  if (!data?.pedido?.id || !Number.isFinite(Number(data.pedido.valor_total))) {
+    throw new Error("O servidor não retornou uma confirmação válida do pedido.");
+  }
+  return data.pedido;
 }
 
 /**
