@@ -6,7 +6,7 @@ const SERVICE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 const ALLOWED_STATUSES = new Set(["pendente", "confirmado", "em_producao", "enviado", "concluido", "cancelado"]);
-const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, criado_em, atualizado_em";
+const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, pagamento_status, stripe_payment_method_type, pagamento_confirmado_em, criado_em, atualizado_em";
 
 function isAllowedOrigin(origin: string) {
   // Only the production origin and explicit local-development origins are trusted.
@@ -72,7 +72,7 @@ async function dashboard(db: ReturnType<typeof createClient>) {
     db.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "pendente"),
     db.from("produtos").select("id", { count: "exact", head: true }),
     db.from("usuarios").select("id", { count: "exact", head: true }),
-    db.from("pedidos").select("id,nome_cliente,email_cliente,status,valor_total,criado_em").order("criado_em", { ascending: false }).limit(8),
+    db.from("pedidos").select("id,nome_cliente,email_cliente,status,pagamento_status,valor_total,criado_em").order("criado_em", { ascending: false }).limit(8),
   ]);
   for (const result of [orders, pending, products, customers, latest]) {
     if (result.error) throw result.error;
