@@ -8,7 +8,7 @@ const SERVICE_KEY =
 const ALLOWED_STATUSES = new Set(["pendente", "confirmado", "em_producao", "enviado", "concluido", "cancelado"]);
 const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, pagamento_status, stripe_payment_method_type, pagamento_confirmado_em, criado_em, atualizado_em";
 
-const CONFIGURED_SITE_ORIGIN = (Deno.env.get("ROCHA7_SITE_URL") ?? "https://rocha7.vercel.app").replace(/\\/+$/, "");
+const CONFIGURED_SITE_ORIGIN = (Deno.env.get("ROCHA7_SITE_URL") ?? "https://rocha7.vercel.app").replace(/\/+$/, "");
 
 function isAllowedOrigin(origin: string) {
   // Production and local development are allowed, plus the single explicit
