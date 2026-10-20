@@ -62,8 +62,28 @@ async function initPerfil() {
           <small>Informe CPF (11 dígitos) ou CNPJ (14 dígitos), se já tiver essa informação.</small>
         </div>
         <div class="profile-field full">
-          <label for="profile-address">Endereço de entrega completo</label>
-          <input id="profile-address" name="endereco" type="text" maxlength="500" autocomplete="street-address" placeholder="Rua, número, complemento, bairro, cidade e estado" value="${escapeAttribute(perfil?.endereco || '')}">
+          <label for="profile-address">Rua / Avenida</label>
+          <input id="profile-address" name="endereco" type="text" maxlength="500" autocomplete="address-line1" placeholder="Nome da rua ou avenida" value="${escapeAttribute(perfil?.endereco || '')}">
+        </div>
+        <div class="profile-field">
+          <label for="profile-numero">Número</label>
+          <input id="profile-numero" name="numero" type="text" maxlength="30" autocomplete="address-line2" placeholder="Número do imóvel" value="${escapeAttribute(perfil?.numero || '')}">
+        </div>
+        <div class="profile-field">
+          <label for="profile-complemento">Complemento</label>
+          <input id="profile-complemento" name="complemento" type="text" maxlength="120" placeholder="Apartamento, bloco, referência (opcional)" value="${escapeAttribute(perfil?.complemento || '')}">
+        </div>
+        <div class="profile-field">
+          <label for="profile-bairro">Bairro</label>
+          <input id="profile-bairro" name="bairro" type="text" maxlength="120" autocomplete="address-level3" placeholder="Seu bairro" value="${escapeAttribute(perfil?.bairro || '')}">
+        </div>
+        <div class="profile-field">
+          <label for="profile-cidade">Cidade</label>
+          <input id="profile-cidade" name="cidade" type="text" maxlength="120" autocomplete="address-level2" placeholder="Sua cidade" value="${escapeAttribute(perfil?.cidade || '')}">
+        </div>
+        <div class="profile-field">
+          <label for="profile-estado">Estado (UF)</label>
+          <input id="profile-estado" name="estado" type="text" maxlength="2" minlength="2" autocomplete="address-level1" placeholder="SP" autocapitalize="characters" value="${escapeAttribute(perfil?.estado || '')}">
         </div>
         <div class="profile-field">
           <label for="profile-cep">CEP</label>
@@ -79,6 +99,11 @@ async function initPerfil() {
   const form = container.querySelector('#form-perfil');
   const submit = container.querySelector('#btn-salvar-perfil');
   const alert = container.querySelector('#profile-alert');
+  const stateInput = container.querySelector('#profile-estado');
+  stateInput?.addEventListener('input', () => {
+    stateInput.value = stateInput.value.replace(/[^a-z]/gi, '').slice(0, 2).toUpperCase();
+  });
+
   const cpfInput = container.querySelector('#profile-cpf');
   if (cpfInput) {
     cpfInput.value = formatCpfCnpj(cpfInput.value);
@@ -104,6 +129,11 @@ async function initPerfil() {
     const telefone = valueOf('profile-phone');
     const cpf = valueOf('profile-cpf');
     const endereco = valueOf('profile-address');
+    const numero = valueOf('profile-numero');
+    const complemento = valueOf('profile-complemento');
+    const bairro = valueOf('profile-bairro');
+    const cidade = valueOf('profile-cidade');
+    const estado = valueOf('profile-estado').toUpperCase();
     const cep = valueOf('profile-cep');
     const cpfDigits = cpf.replace(/\D/g, '');
     const cepDigits = cep.replace(/\D/g, '');
@@ -114,6 +144,10 @@ async function initPerfil() {
     }
     if (cpf && ![11, 14].includes(cpfDigits.length)) {
       showAlert('O CPF deve ter 11 dígitos ou o CNPJ deve ter 14 dígitos.', 'error');
+      return;
+    }
+    if (estado && !/^[A-Z]{2}$/.test(estado)) {
+      showAlert('Informe a sigla de 2 letras do estado, por exemplo SP.', 'error');
       return;
     }
     if (cep && cepDigits.length !== 8) {
@@ -134,6 +168,11 @@ async function initPerfil() {
         telefone: telefone || null,
         cpf: cpf || null,
         endereco: endereco || null,
+        numero: numero || null,
+        complemento: complemento || null,
+        bairro: bairro || null,
+        cidade: cidade || null,
+        estado: estado || null,
         cep: cep || null
       });
 
