@@ -141,7 +141,7 @@ export function calcularPrecoUnitario(produto, quantidade = 1) {
   if (produto.tipoPersonalizacao === "personalizavel") {
     const custoFixoEstampa = 60.00;
     const estampaPorPeca = custoFixoEstampa / qtd;
-    return produto.precoBase + estampaPorPeca;
+    return Math.round((produto.precoBase + estampaPorPeca) * 100) / 100;
   }
   return produto.precoBase;
 }

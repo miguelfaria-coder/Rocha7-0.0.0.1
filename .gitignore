@@ -12,3 +12,6 @@ _telas_temp/
 *.log
 .DS_Store
 Thumbs.db
+
+# Dependências e artefatos gerados também dentro de backups
+backup/node_modules/
