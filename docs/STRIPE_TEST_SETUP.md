@@ -14,13 +14,15 @@ No Supabase Dashboard, abra Edge Functions → Secrets e configure:
 
 Esses valores não devem ser enviados ao navegador, adicionados a arquivos HTML/JavaScript ou commitados no GitHub. As funções usam as credenciais do Supabase injetadas pelo ambiente e leem as credenciais Stripe por variáveis de ambiente.
 
-Opcional: configure ROCHA7_SITE_URL como a origem HTTPS exata do domínio de preview que será testado (por exemplo, o domínio atribuído pela Vercel à branch). Sem isso, a origem padrão é https://rocha7.vercel.app. Não inclua caminhos ou barra final.
+Opcional para testar um preview: configure ROCHA7_SITE_URL como a origem HTTPS exata do domínio de preview que será testado (por exemplo, o domínio atribuído pela Vercel à branch), no Supabase Edge Functions → Secrets. Sem isso, a origem padrão é https://rocha7.vercel.app. Não inclua caminhos ou barra final. Essa origem precisa ser idêntica à origem aberta no navegador.
 
 ## 3. Publicar as Edge Functions
 
-Publique:
+Após aplicar a migração ao banco de teste, publique/republique:
+- rocha7-create-order (atualizado para aceitar a origem de preview configurada)
 - rocha7-stripe-checkout
 - rocha7-stripe-webhook
+- rocha7-admin (para exibir estado e método do pagamento no painel administrativo)
 
 A configuração supabase/config.toml desativa a validação JWT do gateway para essas duas funções: a primeira suporta checkout de visitante e valida a chave de idempotência do pedido; a segunda precisa receber chamadas do Stripe. A função webhook autentica a requisição pela assinatura Stripe.
 
