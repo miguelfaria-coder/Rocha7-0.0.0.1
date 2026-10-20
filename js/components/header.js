@@ -244,16 +244,6 @@ function initSmartHeader() {
   }, { passive: true });
 }
 
-// Retorna usuário logado se existir no localStorage
-function getLoggedUser() {
-  try {
-    const raw = localStorage.getItem("r7_user");
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-
 // Renderiza o botão e menu do cantinho (Entrar ou Perfil)
 async function renderUserCorner() {
   const wrapper = document.getElementById("user-corner-wrapper");
