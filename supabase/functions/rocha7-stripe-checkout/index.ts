@@ -1,7 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.118.0";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SECRET_KEYS = Deno.env.get("SUPABASE_SECRET_KEYS");
+const SERVICE_KEY =
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const SITE_URL = (Deno.env.get("ROCHA7_SITE_URL") ?? "https://rocha7.vercel.app").replace(/\/$/, "");
 const corsHeaders = {
