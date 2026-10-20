@@ -4,6 +4,65 @@ import { renderFooter } from '../components/footer.js';
 import { cart } from '../cart.js';
 import { escapeHtml, formatBRL } from '../utils.js';
 
+
+const CHECKOUT_ATTEMPT_STORAGE_KEY = "rocha7_checkout_attempt_v1";
+let checkoutAttemptMemory = null;
+
+function createUuidV4() {
+  if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, value => value.toString(16).padStart(2, "0")).join("");
+  return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+}
+
+async function getCheckoutAttemptKey(order, items) {
+  // Só o hash fica persistido; os dados pessoais não são gravados nesta chave local.
+  const fingerprintSource = JSON.stringify({
+    order: {
+      nome: order.nome, email: order.email, telefone: order.telefone,
+      cpf: order.cpf, endereco: order.endereco, cep: order.cep,
+      formaPagamento: order.formaPagamento, tipoPedido: order.tipoPedido
+    },
+    items: items.map(item => ({
+      id: item.id, tamanho: item.tamanho, cor: item.cor,
+      quantidade: item.quantidade, customDesign: item.customDesign || null
+    }))
+  });
+
+  let fingerprint = null;
+  if (globalThis.crypto?.subtle) {
+    const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(fingerprintSource));
+    fingerprint = Array.from(new Uint8Array(digest), value => value.toString(16).padStart(2, "0")).join("");
+  }
+
+  if (checkoutAttemptMemory?.fingerprintSource === fingerprintSource) return checkoutAttemptMemory.key;
+
+  if (fingerprint) {
+    try {
+      const stored = JSON.parse(localStorage.getItem(CHECKOUT_ATTEMPT_STORAGE_KEY) || "null");
+      if (stored?.fingerprint === fingerprint && /^[0-9a-f-]{36}$/i.test(stored.key || "")) {
+        checkoutAttemptMemory = { fingerprintSource, fingerprint, key: stored.key };
+        return stored.key;
+      }
+    } catch {
+      // Sem armazenamento persistente, a idempotência fica limitada à página atual.
+    }
+  }
+
+  const key = createUuidV4();
+  checkoutAttemptMemory = { fingerprintSource, fingerprint, key };
+  if (fingerprint) {
+    try {
+      localStorage.setItem(CHECKOUT_ATTEMPT_STORAGE_KEY, JSON.stringify({ fingerprint, key }));
+    } catch {
+      // O envio ainda funciona sem armazenamento persistente.
+    }
+  }
+  return key;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   renderHeader();
   renderFooter();
@@ -138,6 +197,7 @@ function initCheckout() {
           valorTotal: summary.valorTotal
         };
 
+        let pedidoConfirmado = null;
         try {
           const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
@@ -156,8 +216,11 @@ function initCheckout() {
               console.warn("Aviso ao atualizar perfil do usuário:", errPerfil);
             }
           }
-          await criarPedidoSupabase(dadosPedido, summary.items);
-          console.log("Pedido salvo com sucesso no Supabase!");
+          dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
+          pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
+          try { localStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY); } catch {}
+          checkoutAttemptMemory = null;
+          console.log("Pedido salvo com confirmação do servidor.");
         } catch (err) {
           console.error("Falha ao salvar pedido no Supabase:", err);
           container.innerHTML = `
@@ -176,7 +239,7 @@ function initCheckout() {
           <div style="text-align: center; padding: 64px 0;">
             <div style="width:64px; height:64px; background:var(--cor-sucesso); color:#fff; font-size:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">✓</div>
             <h2>Pedido Recebido com Sucesso!</h2>
-            <p class="texto-sec" style="margin-bottom: 24px;">Obrigado, <strong>${escapeHtml(nome)}</strong>. Seu pedido foi registrado. Nossa equipe entrará em contato em breve via WhatsApp.</p>
+            <p class="texto-sec" style="margin-bottom: 24px;">Obrigado, <strong>${escapeHtml(nome)}</strong>. Seu pedido foi registrado com o total validado pelo servidor de <strong>${formatBRL(pedidoConfirmado?.valor_total)}</strong>. Nossa equipe entrará em contato em breve via WhatsApp.</p>
             <a href="index.html" class="btn btn-primario btn-lg">Voltar para a Página Inicial</a>
           </div>
         `;
@@ -210,13 +273,6 @@ function initCheckout() {
           if (cpfEl && perfil?.cpf) cpfEl.value = perfil.cpf;
           if (ruaEl && perfil?.endereco) ruaEl.value = perfil.endereco;
           if (cepEl && perfil?.cep) cepEl.value = perfil.cep;
-        } else {
-          const localUser = localStorage.getItem('r7_user');
-          if (localUser) {
-            const parsed = JSON.parse(localUser);
-            if (document.getElementById("check-nome") && parsed.nome) document.getElementById("check-nome").value = parsed.nome;
-            if (document.getElementById("check-email") && parsed.email) document.getElementById("check-email").value = parsed.email;
-          }
         }
       } catch (e) {
         // Ignora silenciosamente se offline ou local
