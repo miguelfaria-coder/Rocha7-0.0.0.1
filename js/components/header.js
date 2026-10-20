@@ -1,6 +1,6 @@
 /* header.js - Cabeçalho Rocha7 */
 import { cart } from '../cart.js';
-import { loginUsuario, loginComGoogle, logoutUsuario, obterUsuarioAtual } from '../supabase.js';
+import { loginUsuario, loginComGoogle, logoutUsuario, obterUsuarioAtual, obterPerfilUsuario } from '../supabase.js';
 import { escapeHtml, formatBRL } from '../utils.js';
 
 let outsideClickBound = false;
@@ -265,10 +265,21 @@ async function renderUserCorner() {
     const authUser = await obterUsuarioAtual();
     if (authUser) {
       const meta = authUser.user_metadata || {};
+      let perfil = null;
+
+      // O nome exibido na conta deve ser o mesmo nome persistido no Perfil / Conta.
+      // Se o perfil ainda não existir ou não puder ser carregado, usa os dados do Auth como fallback.
+      try {
+        perfil = await obterPerfilUsuario(authUser.id);
+      } catch (profileError) {
+        console.warn("Não foi possível carregar o nome salvo no perfil:", profileError);
+      }
+
+      const nomePerfil = typeof perfil?.nome === "string" ? perfil.nome.trim() : "";
       user = {
         id: authUser.id,
-        nome: meta.nome || meta.full_name || meta.name || authUser.email?.split("@")[0] || "Cliente",
-        email: authUser.email || ""
+        nome: nomePerfil || meta.nome || meta.full_name || meta.name || authUser.email?.split("@")[0] || "Cliente",
+        email: perfil?.email || authUser.email || ""
       };
       localStorage.setItem("r7_user", JSON.stringify(user));
     } else {

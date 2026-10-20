@@ -149,14 +149,34 @@ function initCheckout() {
               <input type="text" class="form-input" id="check-cpf" placeholder="000.000.000-00" required>
             </div>
 
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:16px; margin-bottom: 16px;">
-              <div class="form-group">
-                <label class="form-label">Endereço de Entrega Completo</label>
-                <input type="text" class="form-input" id="check-rua" placeholder="Rua, número, complemento, bairro..." required>
+            <div class="checkout-address-grid">
+              <div class="form-group checkout-address-wide">
+                <label class="form-label" for="check-rua">Rua / Avenida</label>
+                <input type="text" class="form-input" id="check-rua" name="endereco" autocomplete="address-line1" placeholder="Nome da rua ou avenida" required>
               </div>
               <div class="form-group">
-                <label class="form-label">CEP</label>
-                <input type="text" class="form-input" id="check-cep" placeholder="00000-000" required>
+                <label class="form-label" for="check-numero">Número</label>
+                <input type="text" class="form-input" id="check-numero" name="numero" autocomplete="address-line2" placeholder="Número" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="check-complemento">Complemento (opcional)</label>
+                <input type="text" class="form-input" id="check-complemento" name="complemento" placeholder="Apartamento, bloco, referência">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="check-bairro">Bairro</label>
+                <input type="text" class="form-input" id="check-bairro" name="bairro" autocomplete="address-level3" placeholder="Seu bairro" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="check-cidade">Cidade</label>
+                <input type="text" class="form-input" id="check-cidade" name="cidade" autocomplete="address-level2" placeholder="Sua cidade" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="check-estado">Estado (UF)</label>
+                <input type="text" class="form-input" id="check-estado" name="estado" maxlength="2" minlength="2" autocomplete="address-level1" placeholder="SP" autocapitalize="characters" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="check-cep">CEP</label>
+                <input type="text" class="form-input" id="check-cep" name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" required>
               </div>
             </div>
 
@@ -211,6 +231,10 @@ function initCheckout() {
 
     const formCheckout = container.querySelector("#form-checkout");
     bindCpfCnpjMask(container.querySelector("#check-cpf"));
+    const estadoInput = container.querySelector("#check-estado");
+    estadoInput?.addEventListener("input", () => {
+      estadoInput.value = estadoInput.value.replace(/[^a-z]/gi, "").slice(0, 2).toUpperCase();
+    });
     if (formCheckout) {
       formCheckout.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -223,11 +247,32 @@ function initCheckout() {
 
         const nome = document.getElementById("check-nome")?.value || "";
         const email = document.getElementById("check-email")?.value || "";
-        const telefone = document.getElementById("check-tel")?.value || "";
-        const endereco = document.getElementById("check-rua")?.value || "";
-        const cep = document.getElementById("check-cep")?.value || "";
+        const telefone = document.getElementById("check-tel")?.value.trim() || "";
+        const rua = document.getElementById("check-rua")?.value.trim() || "";
+        const numero = document.getElementById("check-numero")?.value.trim() || "";
+        const complemento = document.getElementById("check-complemento")?.value.trim() || "";
+        const bairro = document.getElementById("check-bairro")?.value.trim() || "";
+        const cidade = document.getElementById("check-cidade")?.value.trim() || "";
+        const estado = document.getElementById("check-estado")?.value.trim().toUpperCase() || "";
+        const cep = document.getElementById("check-cep")?.value.trim() || "";
         const cpf = document.getElementById("check-cpf")?.value || "";
+        const endereco = [
+          rua,
+          numero ? `nº ${numero}` : "",
+          complemento,
+          bairro,
+          [cidade, estado].filter(Boolean).join(" - ")
+        ].filter(Boolean).join(", ");
         const formaPagamento = document.getElementById("check-pagamento")?.value || "pix";
+
+        if (estado && !/^[A-Z]{2}$/.test(estado)) {
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Confirmar & Gerar Pedido";
+          }
+          alert("Informe a sigla de 2 letras do estado, por exemplo SP.");
+          return;
+        }
 
         const dadosPedido = {
           nome,
@@ -253,7 +298,11 @@ function initCheckout() {
           // Salvar os dados do checkout no perfil é opcional e separado da criação do pedido.
           if (usuario && salvarPerfilSolicitado) {
             try {
-              await atualizarPerfilUsuario(usuario.id, { nome, email, telefone, cpf, endereco, cep });
+              await atualizarPerfilUsuario(usuario.id, {
+                nome, email, telefone, cpf,
+                endereco: rua, numero: numero || null,
+                complemento: complemento || null, bairro, cidade, estado, cep
+              });
               perfilFoiSalvo = true;
             } catch (errPerfil) {
               falhaAoSalvarPerfil = true;
@@ -319,6 +368,11 @@ function initCheckout() {
           const telEl = document.getElementById("check-tel");
           const cpfEl = document.getElementById("check-cpf");
           const ruaEl = document.getElementById("check-rua");
+          const numeroEl = document.getElementById("check-numero");
+          const complementoEl = document.getElementById("check-complemento");
+          const bairroEl = document.getElementById("check-bairro");
+          const cidadeEl = document.getElementById("check-cidade");
+          const estadoEl = document.getElementById("check-estado");
           const cepEl = document.getElementById("check-cep");
 
           if (nomeEl && (perfil?.nome || meta.nome || meta.full_name)) {
@@ -330,6 +384,11 @@ function initCheckout() {
           if (telEl && perfil?.telefone) telEl.value = perfil.telefone;
           if (cpfEl && perfil?.cpf) cpfEl.value = formatCpfCnpj(perfil.cpf);
           if (ruaEl && perfil?.endereco) ruaEl.value = perfil.endereco;
+          if (numeroEl && perfil?.numero) numeroEl.value = perfil.numero;
+          if (complementoEl && perfil?.complemento) complementoEl.value = perfil.complemento;
+          if (bairroEl && perfil?.bairro) bairroEl.value = perfil.bairro;
+          if (cidadeEl && perfil?.cidade) cidadeEl.value = perfil.cidade;
+          if (estadoEl && perfil?.estado) estadoEl.value = perfil.estado.toUpperCase();
           if (cepEl && perfil?.cep) cepEl.value = perfil.cep;
         }
       } catch (e) {
