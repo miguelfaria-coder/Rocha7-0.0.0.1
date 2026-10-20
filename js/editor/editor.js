@@ -408,7 +408,6 @@ function initEditor3DReal() {
 
   update2DTexture("front");
   update2DTexture("back");
-}
 
 /* =========================================================
    SISTEMA DE TROCA DE MODELO
@@ -418,6 +417,16 @@ function loadModel(modelId) {
   if (!modelConfig) return;
 
   currentModelId = modelId;
+
+  // Sincroniza o produto comercial com o modelo visual selecionado.
+  produtoBase = PRODUTOS.find(p => p.id === (modelConfig.isMug ? "prod-10" : "prod-3")) || produtoBase;
+  if (selectTamanho) {
+    selectTamanho.innerHTML = modelConfig.isMug
+      ? '<option value="325ml">Caneca 325 ml</option>'
+      : '<option value="P">Tamanho P</option><option value="M" selected>Tamanho M</option><option value="G">Tamanho G</option><option value="GG">Tamanho GG</option><option value="EXG">Tamanho EXG</option>';
+    selectTamanho.value = modelConfig.isMug ? "325ml" : "M";
+  }
+  if (typeof atualizarPreco === "function") atualizarPreco();
 
   // UI: show loading
   if (loadingOverlay) loadingOverlay.classList.remove("hidden");
