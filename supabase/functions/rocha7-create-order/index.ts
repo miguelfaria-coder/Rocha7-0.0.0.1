@@ -149,10 +149,14 @@ Deno.serve(async (req: Request) => {
     return json(401, { error: "Credencial de autenticação inválida." });
   }
 
-  const ip = req.headers.get("cf-connecting-ip") ||
-    req.headers.get("x-real-ip") ||
-    (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
-  if (ip) {
+  // Não permitir bypass do limitador por ausência de IP reconhecido pelo gateway.
+  // Em X-Forwarded-For, usar o último endereço inserido pelo proxy mais próximo.
+  const forwarded = (req.headers.get("x-forwarded-for") || "").split(",").map((value) => value.trim()).filter(Boolean);
+  const ip = (req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || forwarded.at(-1) || "").trim();
+  if (!ip || ip.length > 100 || /[^0-9a-fA-F:.,%]/.test(ip)) {
+    return json(503, { error: "Não foi possível verificar a origem da solicitação. Tente novamente." });
+  }
+  {
     try {
       const ipHash = await hashIp(ip);
       const { data: allowed, error: rateError } = await admin.rpc("rocha7_checkout_allow_request", { p_ip_hash: ipHash });
