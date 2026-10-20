@@ -78,7 +78,7 @@ async function checkPayment(maxAttempts = 15) {
   container.querySelector("#payment-check-again")?.addEventListener("click", () => checkPayment(15));
 }
 
-if (state === "cancelado") {
+if (state === "cancelado" || state === "falhou") {
   render(
     "Pagamento cancelado",
     "O pagamento não foi concluído no Mercado Pago. O pedido não foi marcado como pago e os itens continuam no carrinho.",
