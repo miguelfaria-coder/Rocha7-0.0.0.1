@@ -30,7 +30,11 @@ async function wait(ms) {
 }
 
 async function checkPayment(maxAttempts = 15) {
-  let idempotencyKey = null;\n  try { idempotencyKey = JSON.parse(localStorage.getItem("rocha7_checkout_attempt_v1") || "null")?.key || null; } catch {}\n  if (!pedidoId || !idempotencyKey) {
+  let idempotencyKey = null;
+  try {
+    idempotencyKey = JSON.parse(localStorage.getItem("rocha7_checkout_attempt_v1") || "null")?.key || null;
+  } catch {}
+  if (!pedidoId || !idempotencyKey) {
     render("Não foi possível verificar o pagamento", "O link de confirmação está incompleto ou inválido.", checkoutLink());
     return;
   }
