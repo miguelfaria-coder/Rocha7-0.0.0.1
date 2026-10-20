@@ -75,9 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const data = await loginUsuario(email, senha);
+                if (!data?.session?.user || !data?.user) {
+                    throw new Error('Não foi possível validar a sessão. Tente entrar novamente.');
+                }
                 const userObj = {
-                    nome: data.user?.user_metadata?.nome || nomePadrao,
-                    email: email
+                    id: data.user.id,
+                    nome: data.user.user_metadata?.nome || data.user.user_metadata?.full_name || nomePadrao,
+                    email: data.user.email || email
                 };
                 localStorage.setItem('r7_user', JSON.stringify(userObj));
                 window.location.href = 'index.html';
@@ -173,15 +177,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const data = await cadastrarUsuario(email, senha, nome);
+
+                // Em projetos com confirmação por e-mail, a conta existe mas ainda não há sessão.
+                if (!data?.session?.user || !data?.user) {
+                    mostrarAlerta('cadastro', 'Conta criada. Verifique seu e-mail e confirme o cadastro antes de entrar.', 'success');
+                    return;
+                }
+
                 const userObj = {
-                    nome: data.user?.user_metadata?.nome || nome,
-                    email: email
+                    id: data.user.id,
+                    nome: data.user.user_metadata?.nome || data.user.user_metadata?.full_name || nome,
+                    email: data.user.email || email
                 };
                 localStorage.setItem('r7_user', JSON.stringify(userObj));
 
-                // Mostrar mensagem de sucesso e redirecionar
                 mostrarAlerta('cadastro', 'Conta criada com sucesso! Redirecionando...', 'success');
-
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 1500);
