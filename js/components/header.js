@@ -1,6 +1,6 @@
 /* header.js - Cabeçalho Rocha7 */
 import { cart } from '../cart.js';
-import { loginUsuario, logoutUsuario } from '../supabase.js';
+import { loginUsuario, logoutUsuario, obterUsuarioAtual } from '../supabase.js';
 import { escapeHtml, formatBRL } from '../utils.js';
 
 let outsideClickBound = false;
@@ -255,11 +255,29 @@ function getLoggedUser() {
 }
 
 // Renderiza o botão e menu do cantinho (Entrar ou Perfil)
-function renderUserCorner() {
+async function renderUserCorner() {
   const wrapper = document.getElementById("user-corner-wrapper");
   if (!wrapper) return;
 
-  const user = getLoggedUser();
+  // localStorage serve apenas para exibição auxiliar; nunca comprova autenticação.
+  let user = null;
+  try {
+    const authUser = await obterUsuarioAtual();
+    if (authUser) {
+      const meta = authUser.user_metadata || {};
+      user = {
+        id: authUser.id,
+        nome: meta.nome || meta.full_name || meta.name || authUser.email?.split("@")[0] || "Cliente",
+        email: authUser.email || ""
+      };
+      localStorage.setItem("r7_user", JSON.stringify(user));
+    } else {
+      localStorage.removeItem("r7_user");
+    }
+  } catch (err) {
+    localStorage.removeItem("r7_user");
+    console.warn("Não foi possível validar a sessão atual:", err);
+  }
 
   if (user && user.nome) {
     const firstName = user.nome.split(" ")[0];
@@ -426,23 +444,21 @@ function setupLoginDrawer() {
     const senha = senhaInput.value;
     const nomePadrao = email.split("@")[0];
 
-    const salvarSessao = (nome, mail) => {
-      localStorage.setItem("r7_user", JSON.stringify({ nome, email: mail }));
-      toggleLoginDrawer(false);
-      renderUserCorner();
-    };
-
     try {
       const data = await loginUsuario(email, senha);
-      const nome = data.user?.user_metadata?.nome || nomePadrao;
-      salvarSessao(nome, email);
+      if (!data?.session?.user || !data?.user) {
+        throw new Error("Conta criada, mas ainda sem sessão ativa. Confirme seu e-mail e entre novamente.");
+      }
+      const nome = data.user.user_metadata?.nome || data.user.user_metadata?.full_name || nomePadrao;
+      localStorage.setItem("r7_user", JSON.stringify({ id: data.user.id, nome, email: data.user.email || email }));
+      toggleLoginDrawer(false);
+      await renderUserCorner();
     } catch (err) {
       const msg = err?.message || String(err);
-      if (/não configurado|not configured|Failed to fetch|NetworkError/i.test(msg)) {
-        const formattedName = nomePadrao.charAt(0).toUpperCase() + nomePadrao.slice(1);
-        salvarSessao(formattedName, email);
-      } else if (alertBox) {
-        alertBox.textContent = msg || "Credenciais inválidas.";
+      if (alertBox) {
+        alertBox.textContent = /Failed to fetch|NetworkError/i.test(msg)
+          ? "Não foi possível conectar ao serviço de autenticação. Verifique a conexão e tente novamente."
+          : msg || "Credenciais inválidas.";
         alertBox.style.display = "block";
       }
     } finally {
