@@ -34,7 +34,7 @@ Para uma compra de teste, o Mercado Pago pode exigir que você simule uma notifi
 
 ## 4. Banco e dados anteriores
 
-A migração `20261020235500_rocha7_mercadopago_checkout_test.sql` adiciona IDs e método do Mercado Pago. Ela preserva os campos e pedidos antigos do Stripe para manter histórico, inclusive o pedido de teste já confirmado. Novos pedidos iniciados pelo checkout passam a usar Mercado Pago.
+A migração `20261020234947_rocha7_mercadopago_checkout_test.sql` adiciona IDs e método do Mercado Pago. Ela preserva os campos e pedidos antigos do Stripe para manter histórico, inclusive o pedido de teste já confirmado. Novos pedidos iniciados pelo checkout passam a usar Mercado Pago.
 
 ## 5. Teste
 
