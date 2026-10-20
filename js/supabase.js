@@ -75,25 +75,39 @@ export async function cadastrarUsuario(email, senha, nome, telefone) {
 /**
  * Autenticação - Login com Conta do Google (OAuth)
  */
+/**
+ * Retorna um redirect de OAuth explícito e restrito às origens que a aplicação utiliza.
+ * Qualquer outro host cai no domínio oficial, evitando redirecionamentos arbitrários.
+ */
+function obterRedirectGoogle() {
+  const productionOrigin = "https://rocha7.vercel.app";
+  const localOrigins = new Set([
+    "http://localhost:5500",
+    "http://127.0.0.1:5500"
+  ]);
+  const currentOrigin = window.location.origin;
+  const redirectOrigin = currentOrigin === productionOrigin || localOrigins.has(currentOrigin)
+    ? currentOrigin
+    : productionOrigin;
+  return new URL("/index.html", redirectOrigin).toString();
+}
+
+/**
+ * Cadastro e login com Google usam o mesmo fluxo OAuth do Supabase:
+ * se a conta ainda não existe, o Auth cria o usuário; se existe, inicia a sessão.
+ */
 export async function loginComGoogle() {
   const supabase = getSupabaseClient();
   if (!supabase) {
     throw new Error("Supabase não configurado no js/supabase.js");
   }
 
-  // Redireciona para index.html após autenticação com o Google
-  let redirectUrl = window.location.href;
-  if (redirectUrl.includes('login.html')) {
-    redirectUrl = redirectUrl.replace('login.html', 'index.html');
-  }
-
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
+    provider: "google",
     options: {
-      redirectTo: redirectUrl,
+      redirectTo: obterRedirectGoogle(),
       queryParams: {
-        access_type: 'offline',
-        prompt: 'select_account'
+        prompt: "select_account"
       }
     }
   });
