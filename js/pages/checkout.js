@@ -186,7 +186,7 @@ function initCheckout() {
 
             <div class="form-group" style="margin-bottom: 24px;">
               <label class="form-label">Pagamento seguro</label>
-              <p class="texto-xs texto-sec">Na próxima etapa, o Stripe exibirá cartão e os outros métodos habilitados para esta conta. O Pix aparece quando estiver disponível e habilitado. Seu pedido só será marcado como pago após confirmação do Stripe.</p>
+              <p class="texto-xs texto-sec">Na próxima etapa, o Mercado Pago mostrará os meios de pagamento disponíveis, como cartão e Pix. Seu pedido só será marcado como pago após confirmação autenticada do Mercado Pago.</p>
               <input type="hidden" id="check-pagamento" value="cartao">
             </div>
 
@@ -290,7 +290,7 @@ function initCheckout() {
         let pedidoConfirmado = null;
         const salvarPerfilSolicitado = Boolean(document.getElementById("check-salvar-perfil")?.checked);
         try {
-          const { criarPedidoSupabase, criarSessaoPagamentoStripe, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
+          const { criarPedidoSupabase, criarCheckoutMercadoPago, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
           if (usuario) dadosPedido.usuarioId = usuario.id;
 
@@ -309,8 +309,8 @@ function initCheckout() {
 
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
-          console.log("Pedido registrado; iniciando sessão Stripe Checkout.");
-          const sessaoPagamento = await criarSessaoPagamentoStripe(pedidoConfirmado.id, dadosPedido.idempotenciaId);
+          console.log("Pedido registrado; iniciando sessão Mercado Pago.");
+          const checkoutPagamento = await criarSessaoPagamentoMercado Pago(pedidoConfirmado.id, dadosPedido.idempotenciaId);
           window.location.assign(sessaoPagamento.url);
           return;
         } catch (err) {
