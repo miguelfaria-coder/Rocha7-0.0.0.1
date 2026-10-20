@@ -8,3 +8,9 @@ verify_jwt = true
 
 [functions.rocha7-contact-message]
 verify_jwt = false
+
+[functions.rocha7-mercadopago-checkout]
+verify_jwt = false
+
+[functions.rocha7-mercadopago-webhook]
+verify_jwt = false

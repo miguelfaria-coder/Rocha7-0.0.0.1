@@ -293,6 +293,41 @@ export async function criarPedidoSupabase(dadosPedido, itens) {
 }
 
 /**
+ * Mercado Pago Checkout Pro usa a função server-side; tokens permanecem no Supabase.
+ */
+export async function criarCheckoutMercadoPago(pedidoId, idempotencyKey) {
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error("Supabase não inicializado");
+  const validUuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  if (!validUuid(pedidoId) || !validUuid(idempotencyKey)) throw new Error("Pedido inválido para iniciar o pagamento.");
+  const { data, error } = await supabase.functions.invoke("rocha7-mercadopago-checkout", {
+    body: { action: "create", pedidoId, idempotencyKey }
+  });
+  if (error) throw error;
+  let validUrl = false;
+  try {
+    const url = new URL(data?.url);
+    validUrl = url.protocol === "https:" && ["mercadopago.com", "mercadopago.com.br"].some(domain => url.hostname === domain || url.hostname.endsWith("." + domain));
+  } catch {}
+  if (!validUrl) throw new Error(data?.error || "O Mercado Pago não retornou uma URL segura.");
+  return data;
+}
+
+/** A confirmação é lida do banco, atualizado pelo webhook assinado. */
+export async function obterStatusPagamentoMercadoPago(pedidoId, idempotencyKey) {
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error("Supabase não inicializado");
+  const validUuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  if (!validUuid(pedidoId) || !validUuid(idempotencyKey)) throw new Error("Identificador de pagamento inválido.");
+  const { data, error } = await supabase.functions.invoke("rocha7-mercadopago-checkout", {
+    body: { action: "status", pedidoId, idempotencyKey }
+  });
+  if (error) throw error;
+  if (!["pendente", "pago", "falhou", "estornado"].includes(data?.status)) throw new Error("Status de pagamento inválido.");
+  return data;
+}
+
+/**
  * Contato - Envia mensagem pelo endpoint server-side protegido.
  * O backend valida os campos, limita tentativas por IP e determina usuario_id pela sessão validada.
  */
@@ -326,6 +361,8 @@ if (typeof window !== 'undefined') {
     atualizarPerfilUsuario,
     buscarProdutosSupabase,
     criarPedidoSupabase,
+    criarCheckoutMercadoPago,
+    obterStatusPagamentoMercadoPago,
     enviarMensagemContatoSupabase
   };
 
