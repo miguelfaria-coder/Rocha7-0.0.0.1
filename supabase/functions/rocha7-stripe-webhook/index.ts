@@ -115,7 +115,7 @@ Deno.serve(async (req: Request) => {
   });
   const { data: order, error: orderError } = await admin
     .from("pedidos")
-    .select("id, valor_total, pagamento_status, stripe_checkout_session_id")
+    .select("id, valor_total, forma_pagamento, pagamento_status, stripe_checkout_session_id")
     .eq("id", orderId)
     .eq("stripe_checkout_session_id", String(session.id))
     .maybeSingle();
@@ -163,10 +163,17 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      const formaPagamentoConfirmada =
+        paymentMethodType === "pix" ? "pix" :
+        paymentMethodType === "card" ? "cartao" :
+        paymentMethodType === "boleto" ? "boleto" :
+        order.forma_pagamento;
+
       const { error: updateError } = await admin
         .from("pedidos")
         .update({
           pagamento_status: "pago",
+          forma_pagamento: formaPagamentoConfirmada,
           stripe_payment_intent_id: paymentIntentId,
           stripe_payment_method_type: paymentMethodType,
           pagamento_confirmado_em: new Date().toISOString(),
