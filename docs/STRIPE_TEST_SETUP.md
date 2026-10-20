@@ -14,6 +14,8 @@ No Supabase Dashboard, abra Edge Functions → Secrets e configure:
 
 Esses valores não devem ser enviados ao navegador, adicionados a arquivos HTML/JavaScript ou commitados no GitHub. As funções usam as credenciais do Supabase injetadas pelo ambiente e leem as credenciais Stripe por variáveis de ambiente.
 
+Opcional: configure ROCHA7_SITE_URL como a origem HTTPS exata do domínio de preview que será testado (por exemplo, o domínio atribuído pela Vercel à branch). Sem isso, a origem padrão é https://rocha7.vercel.app. Não inclua caminhos ou barra final.
+
 ## 3. Publicar as Edge Functions
 
 Publique:
