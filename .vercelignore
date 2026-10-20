@@ -1,0 +1,16 @@
+# Do not deploy development repositories, dependency folders, backups, or backend source.
+backup/
+node_modules/
+.agents/
+.github/
+supabase/
+scripts/
+
+# Never publish environment files, database dumps, archives, or logs.
+.env
+.env.*
+*.sql
+*.dump
+*.zip
+*.bak
+*.log
