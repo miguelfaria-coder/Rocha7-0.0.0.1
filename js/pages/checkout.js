@@ -202,7 +202,7 @@ function initCheckout() {
             </div>
 
             <button type="submit" class="btn btn-primario btn-lg btn-full">
-              Confirmar & Gerar Pedido
+              Ir para pagamento seguro
             </button>
           </form>
         </div>
@@ -272,7 +272,7 @@ function initCheckout() {
         if (estado && !/^[A-Z]{2}$/.test(estado)) {
           if (submitBtn) {
             submitBtn.disabled = false;
-            submitBtn.textContent = "Confirmar & Gerar Pedido";
+            submitBtn.textContent = "Ir para pagamento seguro";
           }
           alert("Informe a sigla de 2 letras do estado, por exemplo SP.");
           return;
@@ -295,7 +295,7 @@ function initCheckout() {
         let falhaAoSalvarPerfil = false;
         const salvarPerfilSolicitado = Boolean(document.getElementById("check-salvar-perfil")?.checked);
         try {
-          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
+          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario, getSupabaseClient } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
           if (usuario) dadosPedido.usuarioId = usuario.id;
 
@@ -316,9 +316,20 @@ function initCheckout() {
 
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
-          try { localStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY); } catch {}
-          checkoutAttemptMemory = null;
-          console.log("Pedido salvo com confirmação do servidor.");
+
+          // O valor do pagamento é lido no servidor a partir do pedido validado no banco.
+          const supabase = getSupabaseClient();
+          if (!supabase) throw new Error("Não foi possível iniciar a conexão segura de pagamento.");
+          const { data: checkoutStripe, error: stripeError } = await supabase.functions.invoke("rocha7-stripe-checkout", {
+            body: { pedidoId: String(pedidoConfirmado.id), formaPagamento, email }
+          });
+          if (stripeError) throw stripeError;
+          const checkoutUrl = new URL(checkoutStripe && checkoutStripe.url ? checkoutStripe.url : "");
+          if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
+            throw new Error("O provedor não retornou um endereço de pagamento válido.");
+          }
+          window.location.assign(checkoutUrl.toString());
+          return;
         } catch (err) {
           console.error("Falha ao salvar pedido no Supabase:", err);
           container.innerHTML = `
