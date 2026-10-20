@@ -58,7 +58,7 @@ async function initPerfil() {
         </div>
         <div class="profile-field">
           <label for="profile-cpf">CPF ou CNPJ</label>
-          <input id="profile-cpf" name="cpf" type="text" maxlength="20" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" value="${escapeAttribute(perfil?.cpf || '')}">
+          <input id="profile-cpf" name="cpf" type="text" maxlength="18" inputmode="numeric" autocomplete="off" placeholder="000.000.000-00" aria-describedby="profile-cpf-help" value="${escapeAttribute(perfil?.cpf || '')}">
           <small>Informe CPF (11 dígitos) ou CNPJ (14 dígitos), se já tiver essa informação.</small>
         </div>
         <div class="profile-field full">
@@ -79,6 +79,24 @@ async function initPerfil() {
   const form = container.querySelector('#form-perfil');
   const submit = container.querySelector('#btn-salvar-perfil');
   const alert = container.querySelector('#profile-alert');
+  const cpfInput = container.querySelector('#profile-cpf');
+  if (cpfInput) {
+    cpfInput.value = formatCpfCnpj(cpfInput.value);
+    cpfInput.addEventListener('input', () => {
+      const cursor = cpfInput.selectionStart ?? cpfInput.value.length;
+      const digitsBeforeCursor = cpfInput.value.slice(0, cursor).replace(/\D/g, '').length;
+      cpfInput.value = formatCpfCnpj(cpfInput.value);
+      let newCursor = 0;
+      let seenDigits = 0;
+      while (newCursor < cpfInput.value.length && seenDigits < digitsBeforeCursor) {
+        if (/\d/.test(cpfInput.value[newCursor])) seenDigits++;
+        newCursor++;
+      }
+      while (/[.\/-]/.test(cpfInput.value[newCursor] || '') && newCursor < cpfInput.value.length) newCursor++;
+      cpfInput.setSelectionRange(newCursor, newCursor);
+    });
+  }
+
   form?.addEventListener('submit', async (event) => {
     event.preventDefault();
     const nome = valueOf('profile-name');
@@ -138,6 +156,21 @@ async function initPerfil() {
     alert.className = `profile-alert ${type}`;
     alert.textContent = message;
   }
+}
+
+function formatCpfCnpj(value) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    if (digits.length > 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    if (digits.length > 6) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    if (digits.length > 3) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    return digits;
+  }
+  if (digits.length > 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  if (digits.length > 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  if (digits.length > 5) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length > 2) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  return digits;
 }
 
 function escapeAttribute(value) {
