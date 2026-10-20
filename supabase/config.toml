@@ -1,0 +1,10 @@
+project_id = "tqixpmfpqegxkfwqxasa"
+
+[functions.rocha7-create-order]
+verify_jwt = false
+
+[functions.rocha7-admin]
+verify_jwt = true
+
+[functions.rocha7-contact-message]
+verify_jwt = false
