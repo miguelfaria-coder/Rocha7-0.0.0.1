@@ -222,6 +222,7 @@ export async function criarPedidoSupabase(dadosPedido, itens) {
       nome_cliente: dadosPedido.nome,
       email_cliente: dadosPedido.email,
       telefone_whatsapp: dadosPedido.telefone,
+      cpf_cliente: dadosPedido.cpf || null,
       endereco_entrega: dadosPedido.endereco,
       cep: dadosPedido.cep,
       forma_pagamento: dadosPedido.formaPagamento,
