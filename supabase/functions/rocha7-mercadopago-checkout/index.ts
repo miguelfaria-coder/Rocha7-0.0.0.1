@@ -83,7 +83,7 @@ Deno.serve(async(req:Request)=>{
       back_urls:{success:url+"sucesso",pending:url+"pendente",failure:url+"falhou"},
       auto_return:"approved",
       notification_url:SUPABASE_URL+"/functions/v1/rocha7-mercadopago-webhook"
-    },"rocha7-"+pedidoId);
+    },key);
   } catch(e) { return reply(req,502,{error:e instanceof Error?e.message:"Não foi possível iniciar o pagamento."}); }
   const preferenceId=typeof pref.id==="string"?pref.id:"";
   const checkoutUrl=typeof pref.init_point==="string"?pref.init_point:"";
