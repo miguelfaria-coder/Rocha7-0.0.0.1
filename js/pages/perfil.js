@@ -136,6 +136,16 @@ async function initPerfil() {
         endereco: endereco || null,
         cep: cep || null
       });
+
+      // Atualiza o nome no balão da conta assim que o perfil é salvo.
+      const localUser = {
+        id: usuario.id,
+        nome,
+        email: email || usuario.email || ""
+      };
+      localStorage.setItem("r7_user", JSON.stringify(localUser));
+      window.dispatchEvent(new Event("user-state-changed"));
+
       showAlert('Perfil atualizado. Os dados salvos serão usados para preencher suas próximas compras.', 'success');
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
