@@ -8,6 +8,41 @@ import { escapeHtml, formatBRL } from '../utils.js';
 const CHECKOUT_ATTEMPT_STORAGE_KEY = "rocha7_checkout_attempt_v1";
 let checkoutAttemptMemory = null;
 
+function formatCpfCnpj(value) {
+  const digits = String(value ?? '').replace(/\D/g, '').slice(0, 14);
+  if (digits.length <= 11) {
+    if (digits.length > 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+    if (digits.length > 6) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+    if (digits.length > 3) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+    return digits;
+  }
+  if (digits.length > 12) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+  if (digits.length > 8) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+  if (digits.length > 5) return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+  if (digits.length > 2) return `${digits.slice(0, 2)}.${digits.slice(2)}`;
+  return digits;
+}
+
+function bindCpfCnpjMask(input) {
+  if (!input || input.dataset.maskBound === 'true') return;
+  input.dataset.maskBound = 'true';
+  input.maxLength = 18;
+  input.value = formatCpfCnpj(input.value);
+  input.addEventListener('input', () => {
+    const cursor = input.selectionStart ?? input.value.length;
+    const digitsBeforeCursor = input.value.slice(0, cursor).replace(/\D/g, '').length;
+    input.value = formatCpfCnpj(input.value);
+    let newCursor = 0;
+    let seenDigits = 0;
+    while (newCursor < input.value.length && seenDigits < digitsBeforeCursor) {
+      if (/\d/.test(input.value[newCursor])) seenDigits++;
+      newCursor++;
+    }
+    while (/[.\/-]/.test(input.value[newCursor] || '') && newCursor < input.value.length) newCursor++;
+    input.setSelectionRange(newCursor, newCursor);
+  });
+}
+
 function createUuidV4() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
   const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
@@ -175,6 +210,7 @@ function initCheckout() {
     `;
 
     const formCheckout = container.querySelector("#form-checkout");
+    bindCpfCnpjMask(container.querySelector("#check-cpf"));
     if (formCheckout) {
       formCheckout.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -292,7 +328,7 @@ function initCheckout() {
             emailEl.value = perfil?.email || user.email;
           }
           if (telEl && perfil?.telefone) telEl.value = perfil.telefone;
-          if (cpfEl && perfil?.cpf) cpfEl.value = perfil.cpf;
+          if (cpfEl && perfil?.cpf) cpfEl.value = formatCpfCnpj(perfil.cpf);
           if (ruaEl && perfil?.endereco) ruaEl.value = perfil.endereco;
           if (cepEl && perfil?.cep) cepEl.value = perfil.cep;
         }
