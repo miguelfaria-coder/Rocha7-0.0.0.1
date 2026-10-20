@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS public.usuarios (
 ALTER TABLE public.usuarios ENABLE ROW LEVEL SECURITY;
 GRANT SELECT, INSERT, UPDATE ON public.usuarios TO authenticated;
 
+DROP POLICY IF EXISTS "Rocha7: usuario le proprio cadastro" ON public.usuarios;
+DROP POLICY IF EXISTS "Rocha7: usuario cria proprio cadastro" ON public.usuarios;
+DROP POLICY IF EXISTS "Rocha7: usuario atualiza proprio cadastro" ON public.usuarios;
 DROP POLICY IF EXISTS "usuarios_select_own" ON public.usuarios;
 CREATE POLICY "usuarios_select_own" ON public.usuarios
   FOR SELECT TO authenticated USING ((select auth.uid()) = id);
@@ -80,10 +83,17 @@ BEGIN
 END;
 $$;
 
+-- Evita dois triggers gravando o mesmo perfil quando uma instalação anterior já existe.
+DROP TRIGGER IF EXISTS rocha7_auth_user_created ON auth.users;
+DROP FUNCTION IF EXISTS public.rocha7_criar_perfil_auth();
+
 DROP TRIGGER IF EXISTS rocha7_on_auth_user_created ON auth.users;
 CREATE TRIGGER rocha7_on_auth_user_created
 AFTER INSERT ON auth.users
 FOR EACH ROW EXECUTE FUNCTION public.rocha7_handle_new_auth_user();
+
+REVOKE EXECUTE ON FUNCTION public.rocha7_handle_new_auth_user() FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.rocha7_set_usuarios_updated_at() FROM PUBLIC, anon, authenticated;
 
 INSERT INTO public.usuarios (id, email, nome, telefone, avatar_url)
 SELECT
