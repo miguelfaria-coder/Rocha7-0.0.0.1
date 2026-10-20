@@ -43,10 +43,11 @@ const MODELOS = {
     path: null,  // TODO: Inserir caminho do arquivo .glb da polo (ex: 'models/polo.glb')
     isPlaceholder: true
   },
-  babylook: {
-    label: 'Baby Look',
-    path: null,  // TODO: Inserir caminho do arquivo .glb da baby look (ex: 'models/babylook.glb')
-    isPlaceholder: true
+  caneca: {
+    label: 'Caneca',
+    path: null,
+    isPlaceholder: false,
+    isMug: true
   },
   moletom: {
     label: 'Moletom',
@@ -442,6 +443,99 @@ function loadModel(modelId) {
   // Remove existing model from scene
   removeCurrentModel();
 
+  // A caneca é gerada diretamente no Three.js, sem depender de arquivo GLB.
+  if (modelConfig.isMug) {
+    const mug = new THREE.Group();
+    const ceramic = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      roughness: 0.28,
+      metalness: 0.0,
+      side: THREE.DoubleSide
+    });
+    const printMaterial = new THREE.MeshStandardMaterial({
+      map: textureFront,
+      color: 0xffffff,
+      roughness: 0.32,
+      metalness: 0.0,
+      side: THREE.DoubleSide
+    });
+
+    // Corpo cilíndrico com abertura superior e a estampa mapeada ao redor.
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.68, 0.60, 1.35, 96, 1, true),
+      printMaterial
+    );
+    body.position.y = 0.05;
+    mug.add(body);
+
+    // Borda superior e fundo cerâmico.
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(0.675, 0.035, 12, 96),
+      ceramic
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.y = 0.725;
+    mug.add(rim);
+
+    const base = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.60, 0.60, 0.09, 64),
+      ceramic
+    );
+    base.position.y = -0.64;
+    mug.add(base);
+
+    // Alça lateral em formato de arco.
+    const handle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.43, 0.105, 20, 64, Math.PI),
+      ceramic
+    );
+    handle.rotation.z = Math.PI / 2;
+    handle.position.set(0.78, 0.02, 0);
+    mug.add(handle);
+
+    // Mantém referências usadas pelo restante do editor.
+    tshirtGroup = mug;
+    tshirtMeshes.length = 0;
+    tshirtMeshes.push(body, rim, base, handle);
+    scene.add(mug);
+
+    // Atualiza o canvas antes de usá-lo como textura do corpo cilíndrico.
+    update2DTexture('front');
+
+    // Caneca usa apenas a área de estampa da frente.
+    const pieceTabs = document.querySelectorAll('#piece-selector-tabs .piece-tab');
+    pieceTabs.forEach(tab => {
+      const isFront = tab.dataset.piece === 'front';
+      tab.style.display = isFront ? '' : 'none';
+    });
+    const frontTabLabel = document.querySelector('#tab-piece-front span');
+    if (frontTabLabel) frontTabLabel.textContent = '☕ Estampa';
+    if (activePiece !== 'front') {
+      activePiece = 'front';
+      const frontTab = document.getElementById('tab-piece-front');
+      if (frontTab) frontTab.click();
+    }
+    if (printAreaTag) printAreaTag.textContent = 'ÁREA DE ESTAMPA DA CANECA';
+    if (svgOutlinePath) svgOutlinePath.setAttribute('d', 'M 145 95 L 355 95 L 340 420 Q 250 445 160 420 Z');
+    if (svgPatternTitle) svgPatternTitle.textContent = 'MOLDE: CANECA';
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    if (controls) {
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+    return;
+  }
+
+  // Restaura as abas de roupa ao sair da caneca.
+  document.querySelectorAll('#piece-selector-tabs .piece-tab').forEach(tab => {
+    tab.style.display = '';
+  });
+  const frontTabLabel = document.querySelector('#tab-piece-front span');
+  if (frontTabLabel) frontTabLabel.textContent = '👕 Frente';
+  if (printAreaTag) printAreaTag.textContent = 'ÁREA DE ESTAMPA';
+  if (svgOutlinePath && PATTERN_PATHS.front) svgOutlinePath.setAttribute('d', PATTERN_PATHS.front);
+  if (svgPatternTitle && PATTERN_TITLES.front) svgPatternTitle.textContent = PATTERN_TITLES.front;
+
   const gltfLoader = new GLTFLoader();
 
   function onModelLoaded(gltf) {
@@ -647,6 +741,11 @@ function update2DTexture(piece) {
   if (!ctx) return;
 
   ctx.clearRect(0, 0, CANVAS_RESOLUTION, CANVAS_RESOLUTION);
+  // A textura da caneca cobre todo o cilindro; o fundo acompanha a cor selecionada.
+  if (currentModelId === 'caneca' && pieceKey === 'front') {
+    ctx.fillStyle = corTecidoAtual || '#ffffff';
+    ctx.fillRect(0, 0, CANVAS_RESOLUTION, CANVAS_RESOLUTION);
+  }
 
   elementos.forEach(item => {
     ctx.save();
