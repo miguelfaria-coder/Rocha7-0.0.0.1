@@ -499,6 +499,9 @@ function loadModel(modelId) {
     tshirtMeshes.push(body, rim, base, handle);
     scene.add(mug);
 
+    // Atualiza o canvas antes de usá-lo como textura do corpo cilíndrico.
+    update2DTexture('front');
+
     // Caneca usa apenas a área de estampa da frente.
     const pieceTabs = document.querySelectorAll('#piece-selector-tabs .piece-tab');
     pieceTabs.forEach(tab => {
@@ -513,6 +516,8 @@ function loadModel(modelId) {
       if (frontTab) frontTab.click();
     }
     if (printAreaTag) printAreaTag.textContent = 'ÁREA DE ESTAMPA DA CANECA';
+    if (svgOutlinePath) svgOutlinePath.setAttribute('d', 'M 145 95 L 355 95 L 340 420 Q 250 445 160 420 Z');
+    if (svgPatternTitle) svgPatternTitle.textContent = 'MOLDE: CANECA';
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
     if (controls) {
       controls.target.set(0, 0, 0);
@@ -528,6 +533,8 @@ function loadModel(modelId) {
   const frontTabLabel = document.querySelector('#tab-piece-front span');
   if (frontTabLabel) frontTabLabel.textContent = '👕 Frente';
   if (printAreaTag) printAreaTag.textContent = 'ÁREA DE ESTAMPA';
+  if (svgOutlinePath && PATTERN_PATHS.front) svgOutlinePath.setAttribute('d', PATTERN_PATHS.front);
+  if (svgPatternTitle && PATTERN_TITLES.front) svgPatternTitle.textContent = PATTERN_TITLES.front;
 
   const gltfLoader = new GLTFLoader();
 
