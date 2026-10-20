@@ -310,15 +310,15 @@ function initCheckout() {
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
           console.log("Pedido registrado; iniciando sessão Mercado Pago.");
-          const checkoutPagamento = await criarSessaoPagamentoMercado Pago(pedidoConfirmado.id, dadosPedido.idempotenciaId);
-          window.location.assign(sessaoPagamento.url);
+          const checkoutPagamento = await criarCheckoutMercadoPago(pedidoConfirmado.id, dadosPedido.idempotenciaId);
+          window.location.assign(checkoutPagamento.url);
           return;
         } catch (err) {
           console.error("Falha ao registrar o pedido ou iniciar o pagamento:", err);
           container.innerHTML = `
             <div style="text-align: center; padding: 64px 0;">
               <h2>Não foi possível iniciar o pagamento</h2>
-              <p class="texto-sec" style="margin-bottom: 24px;">O pedido pode já ter sido registrado, mas continua sem confirmação de pagamento. Seus itens permanecem no carrinho. Tente novamente; a confirmação só ocorre após a validação do Stripe.</p>
+              <p class="texto-sec" style="margin-bottom: 24px;">O pedido pode já ter sido registrado, mas continua sem confirmação de pagamento. Seus itens permanecem no carrinho. Tente novamente; a confirmação só ocorre após a validação do Mercado Pago.</p>
               <button type="button" class="btn btn-primario btn-lg" id="checkout-tentar-novamente">Tentar novamente</button>
               <p class="texto-xs texto-sec" style="margin-top: 12px;">Nenhum pagamento foi confirmado.</p>
             </div>
