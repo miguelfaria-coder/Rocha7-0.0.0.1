@@ -185,12 +185,9 @@ function initCheckout() {
             </div>
 
             <div class="form-group" style="margin-bottom: 24px;">
-              <label class="form-label">Forma de Pagamento Preferencial</label>
-              <select class="form-input" id="check-pagamento">
-                <option value="pix">PIX (5% de Desconto para Igrejas)</option>
-                <option value="boleto">Boleto Faturado (Sob Consulta)</option>
-                <option value="cartao">Cartão de Crédito em até 10x</option>
-              </select>
+              <label class="form-label">Pagamento seguro</label>
+              <p class="texto-xs texto-sec">Na próxima etapa, o Stripe exibirá cartão e os outros métodos habilitados para esta conta. O Pix aparece quando estiver disponível e habilitado. Seu pedido só será marcado como pago após confirmação do Stripe.</p>
+              <input type="hidden" id="check-pagamento" value="cartao">
             </div>
 
             <div class="checkout-save-profile" id="checkout-save-profile" style="display:none;">
@@ -291,11 +288,9 @@ function initCheckout() {
         };
 
         let pedidoConfirmado = null;
-        let perfilFoiSalvo = false;
-        let falhaAoSalvarPerfil = false;
         const salvarPerfilSolicitado = Boolean(document.getElementById("check-salvar-perfil")?.checked);
         try {
-          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
+          const { criarPedidoSupabase, criarSessaoPagamentoStripe, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
           if (usuario) dadosPedido.usuarioId = usuario.id;
 
@@ -307,44 +302,33 @@ function initCheckout() {
                 endereco: rua, numero: numero || null,
                 complemento: complemento || null, bairro, cidade, estado, cep
               });
-              perfilFoiSalvo = true;
             } catch (errPerfil) {
-              falhaAoSalvarPerfil = true;
               console.warn("Aviso ao salvar dados no perfil:", errPerfil);
             }
           }
 
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
-          try { localStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY); } catch {}
-          checkoutAttemptMemory = null;
-          console.log("Pedido salvo com confirmação do servidor.");
+          console.log("Pedido registrado; iniciando sessão Stripe Checkout.");
+          const sessaoPagamento = await criarSessaoPagamentoStripe(pedidoConfirmado.id, dadosPedido.idempotenciaId);
+          window.location.assign(sessaoPagamento.url);
+          return;
         } catch (err) {
           console.error("Falha ao salvar pedido no Supabase:", err);
           container.innerHTML = `
             <div style="text-align: center; padding: 64px 0;">
-              <h2>Não foi possível registrar seu pedido</h2>
-              <p class="texto-sec" style="margin-bottom: 24px;">Seus itens continuam no carrinho. Verifique sua conexão e tente novamente. Se o problema persistir, entre em contato com a equipe.</p>
+              <h2>Não foi possível iniciar o pagamento</h2>
+              <p class="texto-sec" style="margin-bottom: 24px;">O pedido pode já ter sido registrado, mas continua sem confirmação de pagamento. Seus itens permanecem no carrinho. Tente novamente; a confirmação só ocorre após a validação do Stripe.</p>
               <button type="button" class="btn btn-primario btn-lg" id="checkout-tentar-novamente">Tentar novamente</button>
-              <p class="texto-xs texto-sec" style="margin-top: 12px;">Nenhuma confirmação de pedido foi emitida.</p>
+              <p class="texto-xs texto-sec" style="margin-top: 12px;">Nenhum pagamento foi confirmado.</p>
             </div>
           `;
           container.querySelector("#checkout-tentar-novamente")?.addEventListener("click", () => renderView());
           return;
         }
 
-        container.innerHTML = `
-          <div style="text-align: center; padding: 64px 0;">
-            <div style="width:64px; height:64px; background:var(--cor-sucesso); color:#fff; font-size:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">✓</div>
-            <h2>Pedido Recebido com Sucesso!</h2>
-            <p class="texto-sec" style="margin-bottom: 24px;">Obrigado, <strong>${escapeHtml(nome)}</strong>. Seu pedido foi registrado com o total validado pelo servidor de <strong>${formatBRL(pedidoConfirmado?.valor_total)}</strong>. Nossa equipe entrará em contato em breve via WhatsApp.</p>
-            ${perfilFoiSalvo ? '<p class="checkout-profile-status success">Seus dados foram salvos na sua conta para as próximas compras.</p>' : ''}
-            ${falhaAoSalvarPerfil ? '<p class="checkout-profile-status warning">O pedido foi registrado, mas não foi possível salvar os dados na conta. Você pode tentar novamente em Perfil / Conta.</p>' : ''}
-            <a href="index.html" class="btn btn-primario btn-lg">Voltar para a Página Inicial</a>
-          </div>
-        `;
+        // O pagamento é confirmado posteriormente na página pagamento.html, por consulta ao estado atualizado pelo webhook.
 
-        cart.clearCart();
       });
     }
 
