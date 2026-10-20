@@ -221,29 +221,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const googleLoginBtn = document.getElementById('btn-google-login');
     const googleCadastroBtn = document.getElementById('btn-google-cadastro');
 
-    async function handleGoogleLogin(tipo) {
+    async function handleGoogleLogin(tipo, button) {
+        const originalText = button?.querySelector('span')?.textContent || button?.textContent || '';
+        if (button?.disabled) return;
+        if (button) {
+            button.disabled = true;
+            if (button.querySelector('span')) button.querySelector('span').textContent = 'Conectando...';
+        }
+
         try {
-            mostrarAlerta(tipo, 'Conectando com o Google...', 'success');
+            limparErros(tipo);
+            mostrarAlerta(tipo, 'Redirecionando para autenticação segura do Google...', 'success');
             await loginComGoogle();
         } catch (error) {
-            console.error('Erro no login com Google:', error);
             const msg = error?.message || String(error);
-            if (/não configurado|not configured/i.test(msg)) {
-                mostrarAlerta(tipo, 'Supabase não configurado. Verifique as credenciais no js/supabase.js', 'error');
-            } else if (/provider is not enabled|unsupported provider/i.test(msg)) {
-                mostrarAlerta(tipo, 'Provedor Google ainda não foi ativado no painel do Supabase.', 'error');
+            console.warn('Falha ao iniciar OAuth do Google:', msg);
+            if (/provider is not enabled|unsupported provider/i.test(msg)) {
+                mostrarAlerta(tipo, 'O provedor Google ainda não está configurado no Supabase.', 'error');
+            } else if (/redirect.*(not allowed|allow.?list|url)|invalid redirect/i.test(msg)) {
+                mostrarAlerta(tipo, 'A URL de retorno não está autorizada no Supabase. Confira Authentication → URL Configuration.', 'error');
+            } else if (/invalid_client|client_id|client secret/i.test(msg)) {
+                mostrarAlerta(tipo, 'As credenciais OAuth do Google precisam ser conferidas no Supabase.', 'error');
+            } else if (/Failed to fetch|NetworkError/i.test(msg)) {
+                mostrarAlerta(tipo, 'Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.', 'error');
             } else {
-                mostrarAlerta(tipo, 'Falha ao autenticar com o Google. Tente novamente.', 'error');
+                mostrarAlerta(tipo, 'Não foi possível iniciar o acesso com Google. Verifique a configuração OAuth do Supabase e tente novamente.', 'error');
+            }
+        } finally {
+            if (button) {
+                button.disabled = false;
+                if (button.querySelector('span')) button.querySelector('span').textContent = originalText;
             }
         }
     }
 
     if (googleLoginBtn) {
-        googleLoginBtn.addEventListener('click', () => handleGoogleLogin('login'));
+        googleLoginBtn.addEventListener('click', () => handleGoogleLogin('login', googleLoginBtn));
     }
 
     if (googleCadastroBtn) {
-        googleCadastroBtn.addEventListener('click', () => handleGoogleLogin('cadastro'));
+        googleCadastroBtn.addEventListener('click', () => handleGoogleLogin('cadastro', googleCadastroBtn));
     }
 
     // ============================================================
