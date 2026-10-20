@@ -43,10 +43,11 @@ const MODELOS = {
     path: null,  // TODO: Inserir caminho do arquivo .glb da polo (ex: 'models/polo.glb')
     isPlaceholder: true
   },
-  babylook: {
-    label: 'Baby Look',
-    path: null,  // TODO: Inserir caminho do arquivo .glb da baby look (ex: 'models/babylook.glb')
-    isPlaceholder: true
+  caneca: {
+    label: 'Caneca',
+    path: null,
+    isPlaceholder: false,
+    isMug: true
   },
   moletom: {
     label: 'Moletom',
