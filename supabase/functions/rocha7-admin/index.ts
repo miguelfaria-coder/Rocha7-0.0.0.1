@@ -9,9 +9,11 @@ const ALLOWED_STATUSES = new Set(["pendente", "confirmado", "em_producao", "envi
 const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, criado_em, atualizado_em";
 
 function isAllowedOrigin(origin: string) {
-  if (!origin) return true;
-  if (origin === "https://rocha7.vercel.app" || origin === "http://localhost:5500" || origin === "http://127.0.0.1:5500") return true;
-  return /^https:\/\/rocha7-[a-z0-9-]+\.vercel\.app$/.test(origin);
+  // Only the production origin and explicit local-development origins are trusted.
+  // Arbitrary Vercel preview domains are deliberately excluded.
+  return origin === "https://rocha7.vercel.app" ||
+    origin === "http://localhost:5500" ||
+    origin === "http://127.0.0.1:5500";
 }
 
 function headersFor(origin: string) {
