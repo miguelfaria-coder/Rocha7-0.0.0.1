@@ -7,8 +7,10 @@ const SERVICE_KEY =
   (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 const STRIPE_SECRET_KEY = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
 const PRODUCTION_ORIGIN = "https://rocha7.vercel.app";
+const CONFIGURED_SITE_ORIGIN = (Deno.env.get("ROCHA7_SITE_URL") ?? PRODUCTION_ORIGIN).replace(/\/+$/, "");
 const ALLOWED_ORIGINS = new Set([
   PRODUCTION_ORIGIN,
+  CONFIGURED_SITE_ORIGIN,
   "http://localhost:5500",
   "http://127.0.0.1:5500",
   "http://localhost:3000",
@@ -57,7 +59,7 @@ async function stripeRequest(path: string, method: "GET" | "POST", params?: URLS
 
 function safeSiteOrigin(req: Request): string {
   const origin = req.headers.get("origin") || "";
-  return ALLOWED_ORIGINS.has(origin) ? origin : PRODUCTION_ORIGIN;
+  return ALLOWED_ORIGINS.has(origin) ? origin : CONFIGURED_SITE_ORIGIN;
 }
 
 const corsJson = (req: Request, status: number, body: Record<string, unknown>) => json(req, status, body);
