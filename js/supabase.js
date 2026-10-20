@@ -159,14 +159,46 @@ export async function obterPerfilUsuario(userId) {
 /**
  * Perfil - Atualiza os dados cadastrais (CPF, endereço, telefone, etc.) para compras
  */
-export async function atualizarPerfilUsuario(userId, dadosPerfil) {
+/**
+ * Perfil - Salva os dados de compra do próprio usuário.
+ * Usa UPSERT para criar o registro quando o trigger de cadastro ainda não o criou.
+ * A política RLS continua restringindo a linha ao auth.uid() da sessão atual.
+ */
+export async function atualizarPerfilUsuario(userId, dadosPerfil = {}) {
   const supabase = getSupabaseClient();
-  if (!supabase || !userId) throw new Error("Usuário ou Supabase não configurado");
+  if (!supabase) throw new Error("Supabase não configurado");
+
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) throw new Error("Entre na sua conta para salvar os dados.");
+  if (userId && userId !== user.id) throw new Error("Não é permitido alterar o perfil de outra conta.");
+  if (!dadosPerfil || typeof dadosPerfil !== "object" || Array.isArray(dadosPerfil)) {
+    throw new Error("Dados do perfil inválidos.");
+  }
+
+  const metadata = user.user_metadata || {};
+  const nomePadrao = metadata.nome || metadata.full_name || metadata.name || user.email?.split("@")[0] || "Cliente Rocha7";
+  const nomeInformado = typeof dadosPerfil.nome === "string" ? dadosPerfil.nome.trim() : "";
+  const emailInformado = typeof dadosPerfil.email === "string" ? dadosPerfil.email.trim() : "";
+  const payload = {
+    id: user.id,
+    nome: (nomeInformado || nomePadrao).slice(0, 150),
+    email: (emailInformado || user.email || "").slice(0, 254).toLowerCase()
+  };
+
+  const limites = { telefone: 30, cpf: 20, cep: 12, endereco: 500, numero: 30, complemento: 120, bairro: 120, cidade: 120, estado: 2 };
+  for (const [campo, limite] of Object.entries(limites)) {
+    if (!Object.prototype.hasOwnProperty.call(dadosPerfil, campo)) continue;
+    const valor = dadosPerfil[campo];
+    payload[campo] = valor === null ? null : (typeof valor === "string" ? valor.trim().slice(0, limite) : "");
+  }
+
+  if (!payload.nome || !payload.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+    throw new Error("Informe um nome e um e-mail válido para os pedidos.");
+  }
 
   const { data, error } = await supabase
-    .from('usuarios')
-    .update(dadosPerfil)
-    .eq('id', userId)
+    .from("usuarios")
+    .upsert(payload, { onConflict: "id" })
     .select()
     .single();
 

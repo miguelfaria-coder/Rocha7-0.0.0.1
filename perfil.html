@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Gerencie seus dados pessoais e informações para pedidos na Rocha7.">
+  <title>Perfil / Conta — Rocha7</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/header.css">
+  <link rel="stylesheet" href="css/footer.css">
+  <link rel="stylesheet" href="css/perfil.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
+</head>
+<body>
+  <header id="site-header"></header>
+  <main class="page-content profile-page">
+    <div class="container profile-container">
+      <div class="profile-heading">
+        <p class="profile-eyebrow">ÁREA DO CLIENTE</p>
+        <h1>Perfil / Conta</h1>
+        <p>Atualize suas informações pessoais e deixe os dados de suas próximas compras prontos.</p>
+      </div>
+      <div id="perfil-content" aria-live="polite">
+        <div class="profile-loading">Carregando seu perfil...</div>
+      </div>
+    </div>
+  </main>
+  <footer id="site-footer"></footer>
+  <script type="module" src="js/pages/perfil.js"></script>
+</body>
+</html>
