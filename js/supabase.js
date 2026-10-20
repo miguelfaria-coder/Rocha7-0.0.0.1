@@ -293,44 +293,37 @@ export async function criarPedidoSupabase(dadosPedido, itens) {
 }
 
 /**
- * Stripe Checkout - cria ou reutiliza uma sessão usando apenas o ID do pedido
- * e a chave de idempotência. A chave secreta permanece no servidor.
+ * Mercado Pago Checkout Pro usa a função server-side; tokens permanecem no Supabase.
  */
-export async function criarSessaoPagamentoStripe(pedidoId, idempotencyKey) {
+export async function criarCheckoutMercadoPago(pedidoId, idempotencyKey) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase não inicializado");
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(pedidoId || "")) ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(idempotencyKey || ""))) {
-    throw new Error("Pedido inválido para iniciar o pagamento.");
-  }
-
-  const { data, error } = await supabase.functions.invoke("rocha7-stripe-checkout", {
+  const validUuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  if (!validUuid(pedidoId) || !validUuid(idempotencyKey)) throw new Error("Pedido inválido para iniciar o pagamento.");
+  const { data, error } = await supabase.functions.invoke("rocha7-mercadopago-checkout", {
     body: { action: "create", pedidoId, idempotencyKey }
   });
   if (error) throw error;
-  if (typeof data?.url !== "string" || !data.url.startsWith("https://checkout.stripe.com/")) {
-    throw new Error(data?.error || "O Stripe não retornou uma URL segura de checkout.");
-  }
+  let validUrl = false;
+  try {
+    const url = new URL(data?.url);
+    validUrl = url.protocol === "https:" && /(^|\\.)mercadopago\\.com(\\.br)?$/.test(url.hostname);
+  } catch {}
+  if (!validUrl) throw new Error(data?.error || "O Mercado Pago não retornou uma URL segura.");
   return data;
 }
 
-/**
- * Consulta somente o estado salvo pelo webhook; a página de retorno não marca pagamento.
- */
-export async function obterStatusPagamentoStripe(sessionId) {
+/** A confirmação é lida do banco, atualizado pelo webhook assinado. */
+export async function obterStatusPagamentoMercadoPago(pedidoId, idempotencyKey) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error("Supabase não inicializado");
-  if (typeof sessionId !== "string" || !/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) {
-    throw new Error("Identificador de pagamento inválido.");
-  }
-
-  const { data, error } = await supabase.functions.invoke("rocha7-stripe-checkout", {
-    body: { action: "status", sessionId }
+  const validUuid = value => /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(value || ""));
+  if (!validUuid(pedidoId) || !validUuid(idempotencyKey)) throw new Error("Identificador de pagamento inválido.");
+  const { data, error } = await supabase.functions.invoke("rocha7-mercadopago-checkout", {
+    body: { action: "status", pedidoId, idempotencyKey }
   });
   if (error) throw error;
-  if (!["pendente", "pago", "falhou", "estornado"].includes(data?.status)) {
-    throw new Error("O servidor não retornou um status de pagamento válido.");
-  }
+  if (!["pendente", "pago", "falhou", "estornado"].includes(data?.status)) throw new Error("Status de pagamento inválido.");
   return data;
 }
 
@@ -368,8 +361,8 @@ if (typeof window !== 'undefined') {
     atualizarPerfilUsuario,
     buscarProdutosSupabase,
     criarPedidoSupabase,
-    criarSessaoPagamentoStripe,
-    obterStatusPagamentoStripe,
+    criarCheckoutMercadoPago,
+    obterStatusPagamentoMercadoPago,
     enviarMensagemContatoSupabase
   };
 
