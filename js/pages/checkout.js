@@ -134,6 +134,14 @@ function initCheckout() {
               </select>
             </div>
 
+            <div class="checkout-save-profile" id="checkout-save-profile" style="display:none;">
+              <label class="checkout-save-profile-label" for="check-salvar-perfil">
+                <input type="checkbox" id="check-salvar-perfil" disabled>
+                <span><strong>Salvar estes dados na minha conta</strong><small>Use as informações em próximas compras, podendo alterá-las no Perfil / Conta.</small></span>
+              </label>
+              <p class="checkout-save-profile-help" id="checkout-save-profile-help">Verificando sua conta...</p>
+            </div>
+
             <button type="submit" class="btn btn-primario btn-lg btn-full">
               Confirmar & Gerar Pedido
             </button>
@@ -198,24 +206,25 @@ function initCheckout() {
         };
 
         let pedidoConfirmado = null;
+        let perfilFoiSalvo = false;
+        let falhaAoSalvarPerfil = false;
+        const salvarPerfilSolicitado = Boolean(document.getElementById("check-salvar-perfil")?.checked);
         try {
           const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
-          if (usuario) {
-            dadosPedido.usuarioId = usuario.id;
-            // Salva / atualiza dados de compra no perfil do usuário
+          if (usuario) dadosPedido.usuarioId = usuario.id;
+
+          // Salvar os dados do checkout no perfil é opcional e separado da criação do pedido.
+          if (usuario && salvarPerfilSolicitado) {
             try {
-              await atualizarPerfilUsuario(usuario.id, {
-                nome,
-                telefone,
-                cpf,
-                endereco,
-                cep
-              });
+              await atualizarPerfilUsuario(usuario.id, { nome, email, telefone, cpf, endereco, cep });
+              perfilFoiSalvo = true;
             } catch (errPerfil) {
-              console.warn("Aviso ao atualizar perfil do usuário:", errPerfil);
+              falhaAoSalvarPerfil = true;
+              console.warn("Aviso ao salvar dados no perfil:", errPerfil);
             }
           }
+
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
           try { localStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY); } catch {}
@@ -240,6 +249,8 @@ function initCheckout() {
             <div style="width:64px; height:64px; background:var(--cor-sucesso); color:#fff; font-size:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 16px auto;">✓</div>
             <h2>Pedido Recebido com Sucesso!</h2>
             <p class="texto-sec" style="margin-bottom: 24px;">Obrigado, <strong>${escapeHtml(nome)}</strong>. Seu pedido foi registrado com o total validado pelo servidor de <strong>${formatBRL(pedidoConfirmado?.valor_total)}</strong>. Nossa equipe entrará em contato em breve via WhatsApp.</p>
+            ${perfilFoiSalvo ? '<p class="checkout-profile-status success">Seus dados foram salvos na sua conta para as próximas compras.</p>' : ''}
+            ${falhaAoSalvarPerfil ? '<p class="checkout-profile-status warning">O pedido foi registrado, mas não foi possível salvar os dados na conta. Você pode tentar novamente em Perfil / Conta.</p>' : ''}
             <a href="index.html" class="btn btn-primario btn-lg">Voltar para a Página Inicial</a>
           </div>
         `;
@@ -253,6 +264,17 @@ function initCheckout() {
       try {
         const { obterUsuarioAtual, obterPerfilUsuario } = await import('../supabase.js');
         const user = await obterUsuarioAtual();
+        const saveBox = document.getElementById("checkout-save-profile");
+        const saveCheckbox = document.getElementById("check-salvar-perfil");
+        const saveHelp = document.getElementById("checkout-save-profile-help");
+        if (saveBox) saveBox.style.display = "block";
+        if (saveCheckbox) saveCheckbox.disabled = !user;
+        if (saveHelp) {
+          saveHelp.innerHTML = user
+            ? "Opcional: marque a caixa para guardar os dados desta compra no seu perfil."
+            : 'Entre na sua conta para salvar seus dados: <a href="login.html">fazer login ou cadastro</a>.';
+        }
+
         if (user) {
           const perfil = await obterPerfilUsuario(user.id);
           const meta = user.user_metadata || {};
