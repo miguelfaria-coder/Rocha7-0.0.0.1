@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="referrer" content="no-referrer">
+  <title>Administração | Rocha7</title>
+  <link rel="icon" type="image/png" href="/logo.png">
+  <link rel="stylesheet" href="/css/admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="admin-body">
+  <main class="auth-shell" id="login-screen">
+    <section class="auth-card">
+      <a class="brand" href="/" aria-label="Rocha7 — página inicial"><span class="brand-mark">R7</span><span>ROCHA7 <small>ADMINISTRAÇÃO</small></span></a>
+      <p class="eyebrow">ÁREA RESTRITA</p>
+      <h1>Acesso administrativo</h1>
+      <p class="muted">Entre com uma conta autorizada para gerenciar a loja.</p>
+      <form id="login-form" autocomplete="on">
+        <label for="login-email">E-mail</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" required maxlength="254">
+        <label for="login-password">Senha</label>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" required maxlength="256">
+        <button class="button button-primary button-wide" type="submit" id="login-submit">Entrar no painel</button>
+      </form>
+      <p class="notice" id="login-notice" role="status" aria-live="polite"></p>
+      <a class="back-link" href="/">← Voltar à loja</a>
+    </section>
+  </main>
+
+  <div class="admin-app" id="admin-app" hidden>
+    <aside class="sidebar">
+      <a class="brand sidebar-brand" href="/" aria-label="Rocha7"><span class="brand-mark">R7</span><span>ROCHA7 <small>ADMINISTRAÇÃO</small></span></a>
+      <p class="nav-label">GERENCIAMENTO</p>
+      <nav class="admin-nav" aria-label="Seções administrativas">
+        <button class="nav-item active" type="button" data-view="dashboard"><span class="nav-symbol">◫</span>Visão geral</button>
+        <button class="nav-item" type="button" data-view="orders"><span class="nav-symbol">▤</span>Pedidos</button>
+        <button class="nav-item" type="button" data-view="products"><span class="nav-symbol">◇</span>Produtos</button>
+        <button class="nav-item" type="button" data-view="customers"><span class="nav-symbol">◎</span>Clientes</button>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="secure-dot"></span><span>Sessão protegida</span>
+        <button id="logout-button" class="logout-button" type="button">Sair</button>
+      </div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar">
+        <div><span class="eyebrow">ROCHA7 / ADMIN</span><p id="admin-identity">Sessão autenticada</p></div>
+        <button id="refresh-button" class="button button-secondary" type="button">Atualizar dados</button>
+      </header>
+      <main class="content">
+        <div class="content-heading">
+          <div><h1 id="view-title">Visão geral</h1><p id="view-subtitle">Resumo atualizado da operação da loja.</p></div>
+        </div>
+        <p class="notice app-notice" id="app-notice" role="status" aria-live="polite"></p>
+        <section id="view-container" aria-live="polite"></section>
+      </main>
+      <footer class="admin-footer">Rocha7 • Painel privado de operação</footer>
+    </div>
+  </div>
+  <script type="module" src="/js/admin.js"></script>
+</body>
+</html>
