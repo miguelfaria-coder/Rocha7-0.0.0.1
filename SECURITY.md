@@ -1,30 +1,36 @@
 # Rocha7 — Security baseline
 
-## Sensitive operations
-- The browser may contain only the Supabase publishable key. Never put a Supabase service-role/secret key in HTML, JavaScript, committed files, client-visible environment variables, or logs.
-- Order creation must go through the `rocha7-create-order` Edge Function. The database RPC recalculates prices from the product catalog, inserts order and items atomically, and uses an idempotency key.
-- Contact messages must go through `rocha7-contact-message`. The Edge Function validates input, derives identity from a validated session, rate-limits by an HMAC of the origin IP, and writes through server-side credentials.
-- The `rocha7-admin` Edge Function must check `auth.getUser(token)` and the active admin role in `public.perfis` for every operation. Client metadata and localStorage are never authorization sources.
-- Public catalog reads are intentional. Customer records, access logs, order writes, contact-message rows, rate-limit records, and role changes are private.
-- All browser-facing database tables in `public` require RLS, explicit least-privilege grants, and ownership predicates where applicable.
-- Edge functions validate request size, HTTP method, allowed Origin where browsers are used, and all fields on the server. CORS is not a replacement for authentication or input validation.
+## Proteções implantadas
+- O navegador usa somente a chave publicável do Supabase; segredos/service-role ficam exclusivamente no servidor.
+- Pedidos são criados pela Edge Function `rocha7-create-order`, com recálculo de preços no banco, inserção transacional e idempotência.
+- Mensagens de contato passam pela Edge Function `rocha7-contact-message`, que valida os dados, aplica rate limit e deriva a identidade de uma sessão validada.
+- Operações administrativas passam pela Edge Function `rocha7-admin`, que verifica o token com `auth.getUser` e confirma o papel ativo em `public.perfis`.
+- Gravações diretas pelo navegador foram revogadas em `pedidos`, `itens_pedido` e `mensagens_contato`. Clientes autenticados só podem ler os próprios pedidos/itens conforme as políticas RLS.
+- Logs internos e tabelas de rate limit ficam no schema não exposto `private`; o acesso é restrito ao papel de servidor.
+- Todas as tabelas restantes no schema `public` têm RLS habilitado. Existem constraints server-side para validação de mensagens e status de pedidos.
+- O checkout limita tentativas por janela de um minuto e o formulário de contato por janela de dez minutos; os IPs de rate limit são armazenados como HMAC, não como IP bruto.
+- CORS administrativo e do checkout são limitados a origens específicas; o SDK do Supabase no navegador está fixado numa versão explícita.
+- A implantação está configurada para excluir backups, dependências e fontes internas de backend dos arquivos estáticos servidos pelo Vercel.
 
-## Deployment sequence
-1. Apply `rocha7_private_rate_limits_and_constraints` before deploying the frontend change. It moves checkout rate-limit storage into the unexposed `private` schema, adds contact throttling, adds validation constraints, and indexes foreign keys. It keeps the legacy direct-write grants temporarily so production checkout is not interrupted.
-2. Deploy the branch containing the secure checkout/contact frontend and Edge Functions; confirm Vercel production is READY.
-3. Smoke-test one legitimate checkout and one contact submission.
-4. Only then apply `rocha7_production_lockdown`. It revokes direct browser writes to `pedidos`, `itens_pedido`, and `mensagens_contato`; the old client insert policies are removed.
-5. Run Supabase Security and Performance Advisors and verify client grants/RLS policies after deployment.
+## Migrações de produção aplicadas
+- `20261020123748_rocha7_private_rate_limits_and_constraints`
+- `20261020124145_rocha7_production_lockdown`
+- `20261020124347_rocha7_private_internal_tables`
 
-## Supabase Auth dashboard checklist (manual)
-- Enable leaked-password protection if the current plan supports it.
-- Set minimum password length to at least 8 characters (12 is preferable) and use strong-password rules where practical.
-- Require email confirmation and configure Site URL / Redirect URLs to exact owned domains.
-- Enable MFA for all administrator accounts and keep the number of active administrators minimal.
-- Enable CAPTCHA/bot protection and configure Auth rate limits where the plan supports them.
-- Review database backups/PITR and retention, restrict project/dashboard access with MFA, and rotate any secret that is ever exposed.
+Esses nomes/versões devem permanecer sincronizados com a tabela de histórico de migrações do Supabase. Não renomeie versões aplicadas nem execute manualmente os mesmos SQLs com novas versões. Teste alterações futuras em um branch de desenvolvimento antes de aplicá-las em produção.
 
-## Privacy
-- Do not store card numbers or CVV in Rocha7. Process payment details only through a compliant payment provider.
-- Collect only data required to fulfill an order. Limit access to CPF/CNPJ, address, telephone, and contact messages.
-- Error responses must not return SQL, credentials, tokens, or personal data. Avoid logging full payloads or raw IP addresses.
+## Supabase Auth — revisão manual ainda necessária
+O Security Advisor ainda relata que a proteção contra senhas vazadas está desativada. Ela não é controlável pelas migrações SQL nem pelas ferramentas disponíveis nesta sessão.
+1. No Dashboard Supabase, abra **Authentication → Security and Protection / Password Security**.
+2. Ative **Leaked password protection**, se disponível no plano atual.
+3. Configure o mínimo de 8 caracteres (12 é preferível) e regras fortes de senha.
+4. Confirme o e-mail e restrinja Site URL/Redirect URLs aos domínios realmente utilizados.
+5. Configure MFA para todas as contas administrativas, valide a recuperação da conta e mantenha apenas os administradores necessários.
+6. Habilite CAPTCHA/anti-bot e revise limites de Auth quando disponível no plano.
+
+## Operação e privacidade
+- Nunca armazene número completo de cartão ou CVV na Rocha7; use um provedor de pagamentos adequado.
+- Limite o acesso a CPF/CNPJ, endereço, telefone, pedidos e mensagens de contato.
+- Não registre tokens, chaves, senhas, payloads completos ou IPs brutos em logs.
+- Revise periodicamente os Security/Performance Advisors, permissões SQL, usuários administrativos, backups/PITR e retenção de dados.
+- Se um segredo de servidor for exposto, revogue/rotacione-o imediatamente e audite os logs. Chaves publicáveis do Supabase podem estar no navegador; service-role/secret keys nunca podem.
