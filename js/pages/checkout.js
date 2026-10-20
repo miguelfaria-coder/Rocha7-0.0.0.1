@@ -149,6 +149,10 @@ function initCheckout() {
               <input type="text" class="form-input" id="check-cpf" placeholder="000.000.000-00" required>
             </div>
 
+            <div class="checkout-address-heading">
+              <h4>Endereço de entrega</h4>
+              <p>Preencha os mesmos dados de endereço do seu Perfil / Conta. Se estiver conectado, os dados salvos serão preenchidos automaticamente.</p>
+            </div>
             <div class="checkout-address-grid">
               <div class="form-group checkout-address-wide">
                 <label class="form-label" for="check-rua">Rua / Avenida</label>
