@@ -293,6 +293,48 @@ export async function criarPedidoSupabase(dadosPedido, itens) {
 }
 
 /**
+ * Stripe Checkout - cria ou reutiliza uma sessão usando apenas o ID do pedido
+ * e a chave de idempotência. A chave secreta permanece no servidor.
+ */
+export async function criarSessaoPagamentoStripe(pedidoId, idempotencyKey) {
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error("Supabase não inicializado");
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(pedidoId || "")) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String(idempotencyKey || ""))) {
+    throw new Error("Pedido inválido para iniciar o pagamento.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("rocha7-stripe-checkout", {
+    body: { action: "create", pedidoId, idempotencyKey }
+  });
+  if (error) throw error;
+  if (typeof data?.url !== "string" || !data.url.startsWith("https://checkout.stripe.com/")) {
+    throw new Error(data?.error || "O Stripe não retornou uma URL segura de checkout.");
+  }
+  return data;
+}
+
+/**
+ * Consulta somente o estado salvo pelo webhook; a página de retorno não marca pagamento.
+ */
+export async function obterStatusPagamentoStripe(sessionId) {
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error("Supabase não inicializado");
+  if (typeof sessionId !== "string" || !/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) {
+    throw new Error("Identificador de pagamento inválido.");
+  }
+
+  const { data, error } = await supabase.functions.invoke("rocha7-stripe-checkout", {
+    body: { action: "status", sessionId }
+  });
+  if (error) throw error;
+  if (!["pendente", "pago", "falhou", "estornado"].includes(data?.status)) {
+    throw new Error("O servidor não retornou um status de pagamento válido.");
+  }
+  return data;
+}
+
+/**
  * Contato - Envia mensagem pelo endpoint server-side protegido.
  * O backend valida os campos, limita tentativas por IP e determina usuario_id pela sessão validada.
  */
@@ -326,6 +368,8 @@ if (typeof window !== 'undefined') {
     atualizarPerfilUsuario,
     buscarProdutosSupabase,
     criarPedidoSupabase,
+    criarSessaoPagamentoStripe,
+    obterStatusPagamentoStripe,
     enviarMensagemContatoSupabase
   };
 
