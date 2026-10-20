@@ -307,7 +307,7 @@ export async function criarCheckoutMercadoPago(pedidoId, idempotencyKey) {
   let validUrl = false;
   try {
     const url = new URL(data?.url);
-    validUrl = url.protocol === "https:" && /(^|\\.)mercadopago\\.com(\\.br)?$/.test(url.hostname);
+    validUrl = url.protocol === "https:" && ["mercadopago.com", "mercadopago.com.br"].some(domain => url.hostname === domain || url.hostname.endsWith("." + domain));
   } catch {}
   if (!validUrl) throw new Error(data?.error || "O Mercado Pago não retornou uma URL segura.");
   return data;
