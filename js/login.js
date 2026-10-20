@@ -57,8 +57,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!senhaInput.value.trim()) {
                 senhaError.textContent = 'A senha é obrigatória.';
                 isValid = false;
-            } else if (senhaInput.value.length < 6) {
-                senhaError.textContent = 'A senha deve ter no mínimo 6 caracteres.';
+            } else if (senhaInput.value.length < 8) {
+                senhaError.textContent = 'A senha deve ter no mínimo 8 caracteres.';
                 isValid = false;
             }
 
@@ -75,9 +75,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const data = await loginUsuario(email, senha);
+                if (!data?.session?.user || !data?.user) {
+                    throw new Error('Não foi possível validar a sessão. Tente entrar novamente.');
+                }
                 const userObj = {
-                    nome: data.user?.user_metadata?.nome || nomePadrao,
-                    email: email
+                    id: data.user.id,
+                    nome: data.user.user_metadata?.nome || data.user.user_metadata?.full_name || nomePadrao,
+                    email: data.user.email || email
                 };
                 localStorage.setItem('r7_user', JSON.stringify(userObj));
                 window.location.href = 'index.html';
@@ -86,17 +90,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const msg = error?.message || String(error);
                 console.warn('Erro no login:', msg);
 
-                // Fallback para login local (dev/demo) se Supabase não estiver configurado
+                // Não autenticar localmente quando o servidor estiver indisponível:
+                // isso criaria uma sessão falsa e permitiria acesso sem validar a senha.
                 if (/não configurado|not configured|Failed to fetch|NetworkError/i.test(msg)) {
-                    const formattedName = nomePadrao.charAt(0).toUpperCase() + nomePadrao.slice(1);
-                    const userObj = {
-                        nome: formattedName,
-                        email: email
-                    };
-                    localStorage.setItem('r7_user', JSON.stringify(userObj));
-                    window.location.href = 'index.html';
+                    mostrarAlerta('login', 'Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.', 'error');
                 } else {
-                    // Erro real de credenciais — mostrar mensagem na tela
                     mostrarAlerta('login', 'E-mail ou senha incorretos. Tente novamente.', 'error');
                 }
             } finally {
@@ -152,8 +150,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!senhaInput.value.trim()) {
                 senhaError.textContent = 'A senha é obrigatória.';
                 isValid = false;
-            } else if (senhaInput.value.length < 6) {
-                senhaError.textContent = 'A senha deve ter no mínimo 6 caracteres.';
+            } else if (senhaInput.value.length < 8) {
+                senhaError.textContent = 'A senha deve ter no mínimo 8 caracteres.';
                 isValid = false;
             }
 
@@ -179,15 +177,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 const data = await cadastrarUsuario(email, senha, nome);
+
+                // Em projetos com confirmação por e-mail, a conta existe mas ainda não há sessão.
+                if (!data?.session?.user || !data?.user) {
+                    mostrarAlerta('cadastro', 'Conta criada. Verifique seu e-mail e confirme o cadastro antes de entrar.', 'success');
+                    return;
+                }
+
                 const userObj = {
-                    nome: data.user?.user_metadata?.nome || nome,
-                    email: email
+                    id: data.user.id,
+                    nome: data.user.user_metadata?.nome || data.user.user_metadata?.full_name || nome,
+                    email: data.user.email || email
                 };
                 localStorage.setItem('r7_user', JSON.stringify(userObj));
 
-                // Mostrar mensagem de sucesso e redirecionar
                 mostrarAlerta('cadastro', 'Conta criada com sucesso! Redirecionando...', 'success');
-
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 1500);
@@ -196,17 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const msg = error?.message || String(error);
                 console.warn('Erro no cadastro:', msg);
 
-                // Fallback para cadastro local (dev/demo)
+                // Não simular cadastro bem-sucedido quando o Supabase estiver indisponível.
                 if (/não configurado|not configured|Failed to fetch|NetworkError/i.test(msg)) {
-                    const userObj = {
-                        nome: nome,
-                        email: email
-                    };
-                    localStorage.setItem('r7_user', JSON.stringify(userObj));
-                    mostrarAlerta('cadastro', 'Conta criada com sucesso! Redirecionando...', 'success');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1500);
+                    mostrarAlerta('cadastro', 'Não foi possível conectar ao serviço de cadastro. Verifique sua conexão e tente novamente.', 'error');
                 } else if (/already registered|já cadastrado|already.*exist/i.test(msg)) {
                     mostrarAlerta('cadastro', 'Este e-mail já está cadastrado. Faça login.', 'error');
                 } else {
