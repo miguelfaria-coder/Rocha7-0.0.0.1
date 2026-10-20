@@ -159,7 +159,17 @@ function initCheckout() {
           await criarPedidoSupabase(dadosPedido, summary.items);
           console.log("Pedido salvo com sucesso no Supabase!");
         } catch (err) {
-          console.warn("Aviso ao salvar pedido no Supabase (pedido registrado localmente):", err.message || err);
+          console.error("Falha ao salvar pedido no Supabase:", err);
+          container.innerHTML = `
+            <div style="text-align: center; padding: 64px 0;">
+              <h2>Não foi possível registrar seu pedido</h2>
+              <p class="texto-sec" style="margin-bottom: 24px;">Seus itens continuam no carrinho. Verifique sua conexão e tente novamente. Se o problema persistir, entre em contato com a equipe.</p>
+              <button type="button" class="btn btn-primario btn-lg" id="checkout-tentar-novamente">Tentar novamente</button>
+              <p class="texto-xs texto-sec" style="margin-top: 12px;">Nenhuma confirmação de pedido foi emitida.</p>
+            </div>
+          `;
+          container.querySelector("#checkout-tentar-novamente")?.addEventListener("click", () => renderView());
+          return;
         }
 
         container.innerHTML = `
