@@ -314,7 +314,7 @@ function initCheckout() {
           window.location.assign(sessaoPagamento.url);
           return;
         } catch (err) {
-          console.error("Falha ao salvar pedido no Supabase:", err);
+          console.error("Falha ao registrar o pedido ou iniciar o pagamento:", err);
           container.innerHTML = `
             <div style="text-align: center; padding: 64px 0;">
               <h2>Não foi possível iniciar o pagamento</h2>
