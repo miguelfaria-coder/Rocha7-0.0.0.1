@@ -31,7 +31,8 @@ Deno.serve(async (req: Request) => {
   try { body = await req.json(); } catch { return json(400, { error: "Solicitação inválida." }); }
   const pedidoId = typeof body.pedidoId === "string" ? body.pedidoId.trim() : "";
   const forma = typeof body.formaPagamento === "string" ? body.formaPagamento : "";
-  if (!pedidoId || pedidoId.length > 100 || !["cartao", "pix", "boleto"].includes(forma)) {
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  if (!pedidoId || pedidoId.length > 100 || !email.includes("@") || !["cartao", "pix", "boleto"].includes(forma)) {
     return json(400, { error: "Pedido ou forma de pagamento inválidos." });
   }
 
@@ -43,7 +44,7 @@ Deno.serve(async (req: Request) => {
     .select("id, valor_total, nome, email, forma_pagamento, status_pagamento, stripe_session_id")
     .eq("id", pedidoId)
     .maybeSingle();
-  if (pedidoError || !pedido) return json(404, { error: "Pedido não encontrado." });
+  if (pedidoError || !pedido || String(pedido.email || "").trim().toLowerCase() !== email) return json(404, { error: "Pedido não encontrado para os dados informados." });
 
   if (pedido.status_pagamento === "pago") return json(409, { error: "Este pedido já está pago." });
 
@@ -56,7 +57,7 @@ Deno.serve(async (req: Request) => {
       if (existingResponse.ok && existing.status === "open" && typeof existing.url === "string") {
         return json(200, { url: existing.url, sessionId: existing.id });
       }
-      if (existingResponse.ok && existing.status === "complete" && existing.payment_status !== "unpaid") {
+      if (existingResponse.ok && existing.status === "complete") {
         return json(409, { error: "Este pagamento está sendo confirmado. Aguarde antes de tentar novamente." });
       }
     } catch {
