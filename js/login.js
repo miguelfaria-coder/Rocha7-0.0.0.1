@@ -86,17 +86,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const msg = error?.message || String(error);
                 console.warn('Erro no login:', msg);
 
-                // Fallback para login local (dev/demo) se Supabase não estiver configurado
+                // Não autenticar localmente quando o servidor estiver indisponível:
+                // isso criaria uma sessão falsa e permitiria acesso sem validar a senha.
                 if (/não configurado|not configured|Failed to fetch|NetworkError/i.test(msg)) {
-                    const formattedName = nomePadrao.charAt(0).toUpperCase() + nomePadrao.slice(1);
-                    const userObj = {
-                        nome: formattedName,
-                        email: email
-                    };
-                    localStorage.setItem('r7_user', JSON.stringify(userObj));
-                    window.location.href = 'index.html';
+                    mostrarAlerta('login', 'Não foi possível conectar ao serviço de autenticação. Verifique sua conexão e tente novamente.', 'error');
                 } else {
-                    // Erro real de credenciais — mostrar mensagem na tela
                     mostrarAlerta('login', 'E-mail ou senha incorretos. Tente novamente.', 'error');
                 }
             } finally {
@@ -196,17 +190,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const msg = error?.message || String(error);
                 console.warn('Erro no cadastro:', msg);
 
-                // Fallback para cadastro local (dev/demo)
+                // Não simular cadastro bem-sucedido quando o Supabase estiver indisponível.
                 if (/não configurado|not configured|Failed to fetch|NetworkError/i.test(msg)) {
-                    const userObj = {
-                        nome: nome,
-                        email: email
-                    };
-                    localStorage.setItem('r7_user', JSON.stringify(userObj));
-                    mostrarAlerta('cadastro', 'Conta criada com sucesso! Redirecionando...', 'success');
-                    setTimeout(() => {
-                        window.location.href = 'index.html';
-                    }, 1500);
+                    mostrarAlerta('cadastro', 'Não foi possível conectar ao serviço de cadastro. Verifique sua conexão e tente novamente.', 'error');
                 } else if (/already registered|já cadastrado|already.*exist/i.test(msg)) {
                     mostrarAlerta('cadastro', 'Este e-mail já está cadastrado. Faça login.', 'error');
                 } else {
