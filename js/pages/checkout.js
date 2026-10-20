@@ -321,7 +321,7 @@ function initCheckout() {
           const supabase = getSupabaseClient();
           if (!supabase) throw new Error("Não foi possível iniciar a conexão segura de pagamento.");
           const { data: checkoutStripe, error: stripeError } = await supabase.functions.invoke("rocha7-stripe-checkout", {
-            body: { pedidoId: String(pedidoConfirmado.id), formaPagamento }
+            body: { pedidoId: String(pedidoConfirmado.id), formaPagamento, email }
           });
           if (stripeError) throw stripeError;
           const checkoutUrl = new URL(checkoutStripe && checkoutStripe.url ? checkoutStripe.url : "");
