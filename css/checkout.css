@@ -72,3 +72,58 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Opção de guardar dados do checkout no perfil */
+.checkout-save-profile {
+  margin: 18px 0 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--cor-borda, #e5e7eb);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.checkout-save-profile-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  line-height: 1.4;
+}
+.checkout-save-profile-label input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--cor-primaria);
+}
+.checkout-save-profile-label strong,
+.checkout-save-profile-label small {
+  display: block;
+}
+.checkout-save-profile-label strong {
+  color: var(--cor-texto, #111827);
+  font-size: 13px;
+}
+.checkout-save-profile-label small {
+  margin-top: 4px;
+  color: var(--cor-texto-mutado, #6b7280);
+  font-size: 12px;
+}
+.checkout-save-profile-help {
+  margin: 8px 0 0 27px;
+  color: var(--cor-texto-mutado, #6b7280);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.checkout-save-profile-help a {
+  color: var(--cor-primaria);
+  font-weight: 700;
+}
+.checkout-profile-status {
+  max-width: 620px;
+  margin: 12px auto 18px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.checkout-profile-status.success { color: #166534; }
+.checkout-profile-status.warning { color: #92400e; }
