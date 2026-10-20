@@ -59,10 +59,13 @@ Deno.serve(async (req: Request) => {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: order, error: readError } = await admin.from("pedidos")
-    .select("id, stripe_session_id, valor_total").eq("id", orderId).maybeSingle();
+    .select("id, stripe_session_id, valor_total, status_pagamento").eq("id", orderId).maybeSingle();
   if (readError || !order) return new Response("Order not found", { status: 404 });
   if (order.stripe_session_id && order.stripe_session_id !== session.id) {
     return new Response("Session does not match order", { status: 400 });
+  }
+  if (order.status_pagamento === "pago") {
+    return new Response(JSON.stringify({ received: true }), { headers: { "Content-Type": "application/json" } });
   }
 
   let status = "pendente";
