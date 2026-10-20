@@ -27,7 +27,7 @@ function headersFor(origin: string) {
 function json(status: number, body: Record<string, unknown>, origin = "") {
   return new Response(JSON.stringify(body), { status, headers: headersFor(origin) });
 }
-function trimmed(v: unknown, max: number): string {
+function trimmed(v: unknown): string {
   return typeof v === "string" ? v.trim() : "";
 }
 function decodeJwtRole(token: string): string | null {
