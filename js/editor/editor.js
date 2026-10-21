@@ -471,7 +471,7 @@ function loadModel(modelId) {
 
     // Corpo cilíndrico com abertura superior e a estampa mapeada ao redor.
     const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.68, 0.60, 1.35, 96, 1, true),
+      new THREE.CylinderGeometry(0.68, 0.68, 1.35, 96, 1, true),
       printMaterial
     );
     body.position.y = 0.05;
@@ -498,7 +498,7 @@ function loadModel(modelId) {
       new THREE.TorusGeometry(0.43, 0.105, 20, 64, Math.PI),
       ceramic
     );
-    handle.rotation.z = Math.PI / 2;
+    handle.rotation.z = -Math.PI / 2;
     handle.position.set(0.78, 0.02, 0);
     mug.add(handle);
 
