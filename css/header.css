@@ -291,6 +291,7 @@
 
 .user-corner-btn {
   display: flex;
+  text-decoration: none;
   align-items: center;
   gap: 8px;
   padding: 8px 14px;

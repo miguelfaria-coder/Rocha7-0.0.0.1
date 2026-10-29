@@ -2,12 +2,30 @@
 /* Utiliza as variáveis definidas em variables.css */
 
 /* ============================================================
+   RESET DE PÁGINA ESPECÍFICO DO LOGIN
+   Garante tela cheia escura (#1e1e1e) sem faixa superior herdada do global.css
+   ============================================================ */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+    background-color: #1e1e1e !important;
+    overflow-x: hidden;
+}
+
+body {
+    padding-top: 0 !important;
+}
+
+/* ============================================================
    LAYOUT PRINCIPAL — Container fullscreen escuro
    ============================================================ */
 .login-container {
-    background-color: var(--cor-escura-painel);
+    background-color: #1e1e1e;
     display: flex;
     width: 100%;
+    min-height: 100vh;
     height: 100vh;
     justify-content: center;
     align-items: center;
