@@ -35,13 +35,15 @@ const MODELOS = {
   },
   football_jersey: {
     label: 'Polo Futebol Zíper',
-    path: null,  // TODO: Inserir caminho do arquivo .glb da Polo Zíper (ex: 'models/football_jersey.glb')
-    isPlaceholder: true
+    path: null,
+    isPlaceholder: false,
+    isProcedural: true
   },
   polo: {
     label: 'Camiseta Polo',
-    path: null,  // TODO: Inserir caminho do arquivo .glb da polo (ex: 'models/polo.glb')
-    isPlaceholder: true
+    path: null,
+    isPlaceholder: false,
+    isProcedural: true
   },
   caneca: {
     label: 'Caneca',
@@ -51,8 +53,9 @@ const MODELOS = {
   },
   moletom: {
     label: 'Moletom',
-    path: null,  // TODO: Inserir caminho do arquivo .glb do moletom (ex: 'models/moletom.glb')
-    isPlaceholder: true
+    path: null,
+    isPlaceholder: false,
+    isProcedural: true
   }
 };
 
@@ -545,6 +548,32 @@ function loadModel(modelId) {
   if (svgOutlinePath && PATTERN_PATHS.front) svgOutlinePath.setAttribute('d', PATTERN_PATHS.front);
   if (svgPatternTitle && PATTERN_TITLES.front) svgPatternTitle.textContent = PATTERN_TITLES.front;
 
+  // Modelos de roupa criados diretamente em Three.js, sem placeholders.
+  if (modelConfig.isProcedural) {
+    const garment = createGarmentModel(modelId);
+    const bounds = new THREE.Box3().setFromObject(garment);
+    const center = bounds.getCenter(new THREE.Vector3());
+    const size = bounds.getSize(new THREE.Vector3());
+    garment.position.sub(center);
+    const scale = 2.1 / Math.max(size.x, size.y, size.z);
+    garment.scale.setScalar(scale);
+
+    tshirtGroup = garment;
+    tshirtMeshes.length = 0;
+    garment.traverse(child => {
+      if (child.isMesh) tshirtMeshes.push(child);
+    });
+    scene.add(garment);
+    setupDecalMeshes(size, scale);
+    update2DTexture('front');
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    if (controls) {
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+    return;
+  }
+
   const gltfLoader = new GLTFLoader();
 
   function onModelLoaded(gltf) {
@@ -606,6 +635,88 @@ function loadModel(modelId) {
     console.log(`${modelConfig.label}: usando modelo placeholder (T-shirt normal).`);
     loadFromInlineData(gltfLoader, onModelLoaded);
   }
+}
+
+
+// ---- Geometria procedural dos três modelos novos ----
+function createGarmentModel(modelId) {
+  const group = new THREE.Group();
+  const fabric = new THREE.MeshStandardMaterial({ color: new THREE.Color(corTecidoAtual), roughness: 0.84, side: THREE.DoubleSide });
+  const trim = new THREE.MeshStandardMaterial({ color: 0x263445, roughness: 0.72, side: THREE.DoubleSide });
+  const lightTrim = new THREE.MeshStandardMaterial({ color: 0xe9edf2, roughness: 0.55, side: THREE.DoubleSide });
+  const pocketMat = new THREE.MeshStandardMaterial({ color: 0xaeb6c0, roughness: 0.88, side: THREE.DoubleSide });
+
+  function polygon(points, depth, material, z = 0) {
+    const shape = new THREE.Shape();
+    shape.moveTo(points[0][0], points[0][1]);
+    points.slice(1).forEach(([x, y]) => shape.lineTo(x, y));
+    shape.closePath();
+    const geometry = new THREE.ExtrudeGeometry(shape, {
+      depth, bevelEnabled: true, bevelSegments: 2, steps: 1,
+      bevelSize: 0.018, bevelThickness: 0.018, curveSegments: 12
+    });
+    geometry.translate(0, 0, z - depth / 2);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.userData.fabricPart = material === fabric;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+    return mesh;
+  }
+
+  function detailBox(width, height, depth, x, y, z, material) {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    mesh.position.set(x, y, z);
+    mesh.userData.fabricPart = material === fabric;
+    group.add(mesh);
+    return mesh;
+  }
+
+  function button(x, y, z = 0.405) {
+    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.025, 16), trim);
+    mesh.rotation.x = Math.PI / 2;
+    mesh.position.set(x, y, z);
+    mesh.userData.fabricPart = false;
+    group.add(mesh);
+  }
+
+  const torso = [
+    [-0.68,0.78],[-0.38,0.98],[-0.18,0.91],[-0.12,0.73],
+    [0.12,0.73],[0.18,0.91],[0.38,0.98],[0.68,0.78],
+    [0.91,0.38],[0.68,0.24],[0.52,0.48],[0.52,-1],
+    [-0.52,-1],[-0.52,0.48],[-0.68,0.24],[-0.91,0.38]
+  ];
+
+  if (modelId === 'polo' || modelId === 'football_jersey') {
+    polygon(torso, 0.72, fabric);
+    polygon([[-0.62,0.78],[-0.91,0.42],[-1.02,0.12],[-0.73,0.02],[-0.48,0.48]],0.68,fabric);
+    polygon([[0.62,0.78],[0.48,0.48],[0.73,0.02],[1.02,0.12],[0.91,0.42]],0.68,fabric);
+
+    if (modelId === 'polo') {
+      polygon([[-0.22,0.91],[0,0.77],[0.22,0.91],[0.13,0.62],[0,0.69],[-0.13,0.62]],0.76,trim);
+      polygon([[-0.10,0.70],[0.10,0.70],[0.085,0.27],[-0.085,0.27]],0.75,lightTrim,0.01);
+      [0.60,0.48,0.36].forEach(y => button(0,y));
+    } else {
+      polygon([[-0.24,0.91],[0,0.77],[0.24,0.91],[0.13,0.64],[0,0.69],[-0.13,0.64]],0.76,trim);
+      detailBox(0.035,0.48,0.025,0,0.39,0.395,lightTrim);
+      for (let i=0;i<12;i++) detailBox(0.055,0.012,0.028,0,0.59-i*0.036,0.414,trim);
+      detailBox(0.09,0.045,0.05,0,0.64,0.42,lightTrim);
+    }
+  } else if (modelId === 'moletom') {
+    polygon([
+      [-0.70,0.76],[-0.40,0.98],[-0.18,0.90],[-0.12,0.72],
+      [0.12,0.72],[0.18,0.90],[0.40,0.98],[0.70,0.76],
+      [0.88,0.34],[0.66,0.20],[0.52,0.46],[0.52,-1],
+      [-0.52,-1],[-0.52,0.46],[-0.66,0.20],[-0.88,0.34]
+    ],0.78,fabric);
+    polygon([[-0.58,0.78],[-0.86,0.42],[-0.95,-0.50],[-0.68,-0.58],[-0.47,0.42]],0.72,fabric);
+    polygon([[0.58,0.78],[0.47,0.42],[0.68,-0.58],[0.95,-0.50],[0.86,0.42]],0.72,fabric);
+    polygon([[-0.34,0.91],[-0.28,1.18],[-0.16,1.34],[0,1.39],[0.16,1.34],[0.28,1.18],[0.34,0.91],[0.20,0.78],[0,0.84],[-0.20,0.78]],0.60,trim,-0.28);
+    polygon([[-0.39,-0.28],[-0.32,-0.62],[-0.22,-0.70],[0.22,-0.70],[0.32,-0.62],[0.39,-0.28],[0.27,-0.20],[-0.27,-0.20]],0.035,pocketMat,0.405);
+    detailBox(0.024,0.46,0.024,-0.12,0.61,0.405,lightTrim);
+    detailBox(0.024,0.46,0.024,0.12,0.61,0.405,lightTrim);
+  }
+  return group;
 }
 
 function loadFromInlineData(gltfLoader, callback) {
@@ -692,7 +803,9 @@ function setupDecalMeshes(size, scale) {
     polygonOffsetFactor: -1
   });
   decalFrontMesh = new THREE.Mesh(planeGeo, frontMat);
-  decalFrontMesh.position.set(0, 0.02, 0.38);
+  const decalCenterY = currentModelId === 'moletom' ? -0.18 : 0.02;
+  const decalFrontZ = currentModelId === 'moletom' ? 0.35 : 0.38;
+  decalFrontMesh.position.set(0, decalCenterY, decalFrontZ);
   if (tshirtGroup) tshirtGroup.add(decalFrontMesh);
 
   // Decalque das Costas
@@ -705,7 +818,7 @@ function setupDecalMeshes(size, scale) {
     polygonOffsetFactor: -1
   });
   decalBackMesh = new THREE.Mesh(planeGeo, backMat);
-  decalBackMesh.position.set(0, 0.02, -0.38);
+  decalBackMesh.position.set(0, decalCenterY, -decalFrontZ);
   decalBackMesh.rotation.y = Math.PI;
   if (tshirtGroup) tshirtGroup.add(decalBackMesh);
 
@@ -794,7 +907,7 @@ function update2DTexture(piece) {
 function setFabricColor(colorHex) {
   corTecidoAtual = colorHex;
   tshirtMeshes.forEach(mesh => {
-    if (mesh.material && mesh.material.color) {
+    if (mesh.userData.fabricPart !== false && mesh.material && mesh.material.color) {
       mesh.material.color.set(colorHex);
       mesh.material.needsUpdate = true;
     }
