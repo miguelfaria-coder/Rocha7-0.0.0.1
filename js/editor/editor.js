@@ -34,7 +34,7 @@ const MODELOS = {
     isPlaceholder: false
   },
   football_jersey: {
-    label: 'Polo Futebol Zíper',
+    label: 'Polo Futebol com zíper',
     path: null,
     isPlaceholder: false,
     isProcedural: true
