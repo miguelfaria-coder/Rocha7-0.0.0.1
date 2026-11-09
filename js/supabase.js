@@ -80,15 +80,16 @@ export async function cadastrarUsuario(email, senha, nome, telefone) {
  * Qualquer outro host cai no domínio oficial, evitando redirecionamentos arbitrários.
  */
 function obterRedirectGoogle() {
-  const productionOrigin = "https://rocha7.vercel.app";
-  const localOrigins = new Set([
+  const allowedOrigins = new Set([
+    "https://rocha7.miguel-faria-497.workers.dev",
+    "https://rocha7.vercel.app",
     "http://localhost:5500",
     "http://127.0.0.1:5500"
   ]);
   const currentOrigin = window.location.origin;
-  const redirectOrigin = currentOrigin === productionOrigin || localOrigins.has(currentOrigin)
+  const redirectOrigin = allowedOrigins.has(currentOrigin)
     ? currentOrigin
-    : productionOrigin;
+    : "https://rocha7.miguel-faria-497.workers.dev";
   return new URL("/index.html", redirectOrigin).toString();
 }
 
