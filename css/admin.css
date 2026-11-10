@@ -128,3 +128,5 @@ details summary { cursor: pointer; color: var(--gold-dark); font-weight: 800; wh
   .auth-card { padding: 25px 21px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+.message-unread td { background: #fffaf1; }
+.message-body { max-width: 460px; padding: 12px 0 4px; color: #51483f; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
