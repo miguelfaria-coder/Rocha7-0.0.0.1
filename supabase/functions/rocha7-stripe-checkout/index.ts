@@ -109,7 +109,7 @@ Deno.serve(async (req: Request) => {
     }
     const { data, error } = await admin
       .from("pedidos")
-      .select("id, pagamento_status")
+      .select("id, pagamento_status, valor_total")
       .eq("stripe_checkout_session_id", sessionId)
       .maybeSingle();
     if (error) {
@@ -117,7 +117,7 @@ Deno.serve(async (req: Request) => {
       return corsJson(req, 503, { error: "Não foi possível consultar o pagamento agora." });
     }
     if (!data) return corsJson(req, 404, { error: "Pagamento não encontrado." });
-    return corsJson(req, 200, { pedidoId: data.id, status: data.pagamento_status });
+    return corsJson(req, 200, { pedidoId: data.id, status: data.pagamento_status, valorTotal: data.valor_total });
   }
 
   if (body.action !== "create") return corsJson(req, 400, { error: "Ação inválida." });
@@ -209,8 +209,8 @@ Deno.serve(async (req: Request) => {
 
   const params = new URLSearchParams();
   params.set("mode", "payment");
-  params.set("success_url", safeSiteOrigin(req) + "/pagamento.html?session_id={CHECKOUT_SESSION_ID}");
-  params.set("cancel_url", safeSiteOrigin(req) + "/pagamento.html?estado=cancelado&pedido_id=" + encodeURIComponent(pedido.id));
+  params.set("success_url", safeSiteOrigin(req) + "/pagamento-retorno.html?session_id={CHECKOUT_SESSION_ID}");
+  params.set("cancel_url", safeSiteOrigin(req) + "/pagamento-retorno.html?estado=cancelado&pedido_id=" + encodeURIComponent(pedido.id));
   params.set("client_reference_id", pedido.id);
   params.set("customer_email", String(pedido.email_cliente));
   params.set("locale", "pt-BR");
