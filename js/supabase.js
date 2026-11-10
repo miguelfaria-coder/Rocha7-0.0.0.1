@@ -81,6 +81,8 @@ export async function cadastrarUsuario(email, senha, nome, telefone) {
  */
 function obterRedirectGoogle() {
   const allowedOrigins = new Set([
+    "https://rocha7.devs.surf",
+    "https://rocha7-0-0-0-1.pages.dev",
     "https://rocha7.miguel-faria-497.workers.dev",
     "https://rocha7.vercel.app",
     "http://localhost:5500",
