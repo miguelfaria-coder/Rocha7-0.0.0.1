@@ -1,2 +1,1 @@
-/admin /admin.html 200
-/admin/ /admin.html 200
+# Admin is served by /admin/index.html. Avoid rewrite rules that conflict with Pages directory-index routing.
