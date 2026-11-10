@@ -130,3 +130,14 @@ details summary { cursor: pointer; color: var(--gold-dark); font-weight: 800; wh
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
 .message-unread td { background: #fffaf1; }
 .message-body { max-width: 460px; padding: 12px 0 4px; color: #51483f; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.admin-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 13px 16px; border-bottom: 1px solid var(--line); background: #fffdfa; }
+.admin-filters .filter-search { flex: 1 1 210px; max-width: 360px; }
+.admin-filters .filter-select { width: auto; min-width: 145px; max-width: 220px; padding: 10px 30px 10px 10px; font-size: 11px; }
+.admin-filters input, .admin-filters select { border-radius: 8px; }
+.filter-count { margin-left: auto; color: var(--muted); font-size: 11px; white-space: nowrap; }
+@media (max-width: 720px) {
+  .admin-filters { align-items: stretch; padding: 11px; }
+  .admin-filters .filter-search, .admin-filters .filter-select { width: 100%; max-width: none; flex: 1 1 100%; }
+  .filter-count { margin-left: 0; }
+}
