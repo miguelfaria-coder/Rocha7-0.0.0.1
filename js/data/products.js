@@ -66,32 +66,7 @@ export const PRODUTOS = [
     avaliacao: 5,
     cores: ["azul-marinho", "preto", "branco"]
   },
-  {
-    id: "prod-6",
-    nome: "Baby Look Algodão Liso",
-    categoria: "camisa",
-    estilo: "baby-look",
-    tipoPersonalizacao: "lisa",
-    precoBase: 35.00,
-    imagem: "assets/img/produtos/babylook-rosa.svg",
-    descricao: "Corte acinturado feminino com gola redonda reforçada. Tecido leve e muito confortável.",
-    destaque: false,
-    avaliacao: 5,
-    cores: ["rosa", "branco", "preto"]
-  },
-  {
-    id: "prod-7",
-    nome: "Baby Look Personalizável",
-    categoria: "camisa",
-    estilo: "baby-look",
-    tipoPersonalizacao: "personalizavel",
-    precoBase: 30.00,
-    imagem: "assets/img/produtos/babylook-rosa.svg",
-    descricao: "Modelo feminino acinturado para congressos de mulheres e moças.",
-    destaque: false,
-    avaliacao: 5,
-    cores: ["rosa", "branco", "preto"]
-  },
+
   {
     id: "prod-8",
     nome: "Moletom Canguru Liso Flanelado",
@@ -132,6 +107,19 @@ export const PRODUTOS = [
     cores: ["branco"]
   }
 ];
+function normalizarTextoProduto(valor) {
+  return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/babylook/g, 'baby look').replace(/[-_]+/g, ' ').trim();
+}
+
+export function ehProdutoBabyLook(produto) {
+  if (!produto) return false;
+  if (['prod-6', 'prod-7'].includes(String(produto.id))) return true;
+  const nome = normalizarTextoProduto(produto.nome);
+  const categoria = normalizarTextoProduto(produto.categoria || produto.categoria_id);
+  const estilo = normalizarTextoProduto(produto.estilo);
+  return nome.includes('baby look') || categoria.includes('baby look') || estilo === 'baby look';
+}
+
 /**
  * Calcula o preço unitário diluindo o custo fixo de estampa conforme a quantidade total de peças
  * Regra: Preço = Base + (60.00 / Quantidade) para produtos personalizáveis
@@ -158,22 +146,26 @@ export async function carregarProdutos() {
       return produtosDb.map(p => ({
         id: p.id,
         nome: p.nome,
-        categoria: p.categoria_id,
+        categoria: p.categoria_nome || p.categoria_id,
+        categoriaId: p.categoria_id,
         estilo: p.estilo,
         tipoPersonalizacao: p.tipo_personalizacao,
         precoBase: parseFloat(p.preco_base),
         imagem: p.imagem,
+        imagens: Array.isArray(p.imagens) ? p.imagens : (Array.isArray(p.galeria) ? p.galeria : []),
+        imagensPorCor: p.imagens_por_cor || p.imagensPorCor || {},
         descricao: p.descricao,
         destaque: p.destaque,
         avaliacao: parseFloat(p.avaliacao || 5.0),
+        avaliacoesCount: Number(p.avaliacoes_count || p.quantidade_avaliacoes || 0),
         cores: p.cores || []
-      }));
+      })).filter(produto => !ehProdutoBabyLook(produto));
     }
   } catch (err) {
     console.warn("Usando catálogo estático devido à ausência de dados do Supabase:", err);
   }
 
-  return PRODUTOS;
+  return PRODUTOS.filter(produto => !ehProdutoBabyLook(produto));
 }
 
 if (typeof window !== 'undefined') {

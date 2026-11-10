@@ -3,6 +3,15 @@ import { escapeHtml } from "./utils.js";
 
 const CART_STORAGE_KEY = "rocha7_cart_items_v1";
 
+function itemBabyLookRemovido(item) {
+  const normalizar = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/babylook/g, 'baby look').replace(/[-_]+/g, ' ').trim();
+  const id = String(item?.id || item?.produto_id || '');
+  return ['prod-6', 'prod-7'].includes(id) ||
+    normalizar(item?.nome || item?.nome_produto).includes('baby look') ||
+    normalizar(item?.categoria || item?.categoria_id).includes('baby look') ||
+    normalizar(item?.estilo) === 'baby look';
+}
+
 class CartManager {
   constructor() {
     this.items = this.loadCart();
@@ -11,7 +20,11 @@ class CartManager {
   loadCart() {
     try {
       const data = localStorage.getItem(CART_STORAGE_KEY);
-      return data ? JSON.parse(data) : [];
+      const stored = data ? JSON.parse(data) : [];
+      if (!Array.isArray(stored)) return [];
+      const current = stored.filter(item => item && !itemBabyLookRemovido(item));
+      if (current.length !== stored.length) localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(current));
+      return current;
     } catch (e) {
       console.error("Erro ao carregar carrinho:", e);
       return [];
@@ -28,7 +41,7 @@ class CartManager {
   }
 
   addItem(produto, quantidade = 1, opcoes = {}) {
-    const key = `${produto.id}_${opcoes.tamanho || 'M'}_${opcoes.cor || 'padrao'}_${opcoes.customDesignId || 'base'}`;
+    const key = `${produto.id}_${opcoes.tamanho || 'M'}_${opcoes.cor || 'padrao'}_${opcoes.modelagem || 'classico'}_${opcoes.customDesignId || 'base'}`;
     const index = this.items.findIndex(item => item.key === key);
 
     const precoUnitario = opcoes.precoUnitarioCalculado !== undefined 
@@ -46,6 +59,7 @@ class CartManager {
         imagem: produto.imagem,
         tamanho: opcoes.tamanho || 'M',
         cor: opcoes.cor || 'Padrão',
+        modelagem: opcoes.modelagem || 'classico',
         quantidade: quantidade,
         precoUnitario: precoUnitario,
         customDesign: opcoes.customDesign || null

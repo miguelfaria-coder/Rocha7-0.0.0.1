@@ -1,144 +1,96 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pedido em Lote para Igrejas e Grupos — Agência Rocha7</title>
-  <meta name="description"
-    content="Monte pedidos em lote com múltiplos tamanhos e cores em uma única grade para o seu congresso ou evento.">
+  <title>Montar Pedido em Lote — Rocha7</title>
+  <meta name="description" content="Monte seu pedido em lote para igrejas, congressos e eventos.">
   <link rel="icon" type="image/png" href="logo.png">
-
   <link rel="stylesheet" href="css/reset.css">
   <link rel="stylesheet" href="css/variables.css">
   <link rel="stylesheet" href="css/global.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/header.css">
   <link rel="stylesheet" href="css/footer.css">
-  <link rel="stylesheet" href="css/carrinho.css">
-
+  <link rel="stylesheet" href="css/pedido-lote.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
-  <style>
-    .lote-tabela {
-      width: 100%;
-      background: var(--cor-card);
-      border: 1px solid var(--cor-borda);
-      border-radius: var(--radius-md);
-      overflow: hidden;
-      margin-bottom: var(--esp-24);
-    }
-
-    .lote-tabela th,
-    .lote-tabela td {
-      padding: var(--esp-16);
-      border-bottom: 1px solid var(--cor-borda);
-    }
-
-    .lote-tabela th {
-      background: var(--cor-superficie);
-      font-family: var(--fonte-titulo);
-      font-size: var(--tam-sm);
-      text-transform: uppercase;
-    }
-  </style>
 </head>
-
 <body>
-
   <header id="site-header"></header>
-
-  <main class="page-content">
-    <div class="container">
-
-      <nav class="breadcrumbs">
-        <a href="index.html">Página Inicial</a>
-        <span class="sep">/</span>
+  <main class="page-content lote-page">
+    <div class="container lote-container">
+      <nav class="breadcrumbs" aria-label="Você está aqui">
+        <a href="index.html">Página Inicial</a><span class="sep">/</span>
+        <a href="catalogo.html">Catálogo</a><span class="sep">/</span>
         <span class="current">Pedido em Lote</span>
       </nav>
 
-      <div class="secao-header" style="text-align: left; margin-bottom: 32px;">
-        <span class="badge badge-destaque" style="margin-bottom: 8px;">Para Igrejas, Congressos & Eventos</span>
-        <h1 class="titulo-secao">Montar Pedido em Lote</h1>
-        <p class="texto-sec">Adicione múltiplos tamanhos e cores em uma única lista simplificada. Quanto maior a
-          quantidade da mesma estampa, menor o valor unitário.</p>
-      </div>
+      <header class="lote-heading">
+        <span class="lote-eyebrow">Para igrejas, congressos e eventos</span>
+        <h1>Montar Pedido em Lote</h1>
+        <p>Monte as peças, cores e tamanhos do seu grupo em um só pedido.</p>
+      </header>
 
-      <div class="carrinho-layout">
-        <div>
-          <!-- Escolha do Produto Base -->
-          <div class="checkout-secao">
-            <h3 class="checkout-secao-titulo">1. Selecione o Produto Base</h3>
-            <div class="form-group">
-              <label class="form-label">Modelo do Produto</label>
-              <select id="lote-produto-select" class="form-input">
-                <option value="prod-2">Camiseta Estampada 'Fé & Rocha' (Base R$30 + Diluição)</option>
-                <option value="prod-3">Camiseta Personalizada (Monte a Sua - Base R$30 + Diluição)</option>
-                <option value="prod-5">Camisa Polo Personalizável em Malha Fria (Base R$30 + Diluição)</option>
-                <option value="prod-7">Baby Look Personalizável (Base R$30 + Diluição)</option>
-                <option value="prod-9">Moletom Canguru Personalizável (Preço Fixo R$100)</option>
-              </select>
+      <nav class="lote-etapas" aria-label="Etapas do orçamento">
+        <span class="atual">Montar lote</span><i aria-hidden="true"></i>
+        <span>Seus dados</span><i aria-hidden="true"></i><span>Orçamento</span>
+      </nav>
+
+      <div class="lote-layout">
+        <div class="lote-coluna-principal">
+          <section class="lote-card lote-adicionar-card">
+            <header class="lote-card-header"><div><span class="lote-step-number">1</span><div><h2>Adicionar ao lote</h2><p>Escolha as opções da peça e a quantidade.</p></div></div></header>
+            <div class="lote-builder">
+              <label class="lote-field lote-produto-field" for="lote-produto-select">Produto
+                <select id="lote-produto-select" class="form-input" required><option value="">Carregando produtos…</option></select>
+              </label>
+              <fieldset class="lote-field"><legend>Modelagem</legend><div class="lote-modelagens" id="lote-modelagens"></div></fieldset>
+              <fieldset class="lote-field"><legend>Cor <span id="lote-cor-nome">—</span></legend><div class="lote-cores" id="lote-cores"></div></fieldset>
+              <fieldset class="lote-field"><legend>Tamanho <span id="lote-tamanho-nome">—</span></legend><div class="lote-tamanhos" id="lote-tamanhos"></div></fieldset>
+              <div class="lote-builder-bottom">
+                <div class="lote-field"><span class="lote-label">Quantidade</span><div class="lote-stepper"><button type="button" data-builder-qty="minus" aria-label="Diminuir quantidade">−</button><output id="lote-qtd-builder">10</output><button type="button" data-builder-qty="plus" aria-label="Aumentar quantidade">+</button></div></div>
+                <button type="button" class="lote-add-button" id="btn-add-linha-lote">＋ Adicionar ao lote</button>
+              </div>
+              <p class="lote-form-message" id="lote-form-message" role="status" aria-live="polite"></p>
             </div>
-          </div>
+          </section>
 
-          <!-- Grade de Lote -->
-          <div class="checkout-secao">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-              <h3 class="checkout-secao-titulo" style="margin-bottom:0;">2. Grade de Tamanhos & Cores</h3>
-              <button id="btn-add-linha-lote" class="btn btn-secundario btn-sm">+ Adicionar Linha</button>
-            </div>
-
-            <table class="lote-tabela">
-              <thead>
-                <tr>
-                  <th>Tamanho</th>
-                  <th>Cor</th>
-                  <th>Quantidade</th>
-                  <th>Ação</th>
-                </tr>
-              </thead>
-              <tbody id="lote-linhas-body">
-                <!-- Linhas injetadas via JS -->
-              </tbody>
-            </table>
-          </div>
+          <section class="lote-card lote-lista-card">
+            <header class="lote-card-header lote-lista-header"><div><span class="lote-step-number">2</span><div><h2 id="lote-lista-titulo">Meu lote (0 itens)</h2><p>Revise quantidades e valores das peças.</p></div></div><span class="lote-total-chip" id="lote-total-chip">0 peças</span></header>
+            <div class="lote-linhas" id="lote-linhas-body"></div>
+          </section>
         </div>
 
-        <!-- Resumo do Lote -->
-        <div class="resumo-card">
-          <h3 class="resumo-titulo">Resumo do Lote</h3>
-
-          <div class="resumo-linha">
-            <span>Total de Peças:</span>
-            <strong id="lote-total-pecas" style="color: var(--cor-texto); font-size: 18px;">0</strong>
-          </div>
-
-          <div class="resumo-linha">
-            <span>Preço por Peça (Diluído):</span>
-            <strong id="lote-preco-unitario" class="preco">R$ 0,00</strong>
-          </div>
-
-          <div class="resumo-linha total">
-            <span>Valor Total do Lote:</span>
-            <span class="valor" id="lote-valor-total">R$ 0,00</span>
-          </div>
-
-          <button id="btn-adicionar-lote-carrinho" class="btn btn-primario btn-lg btn-full" style="margin-top: 16px;">
-            Adicionar Lote ao Carrinho
-          </button>
-
-          <a href="https://wa.me/5511999999999?text=Preciso%20de%20ajuda%20com%20meu%20pedido%20em%20lote"
-            target="_blank" class="btn btn-secundario btn-full" style="text-align:center;">
-            Precisa de ajuda? Fale no WhatsApp
-          </a>
-        </div>
+        <aside class="lote-coluna-resumo">
+          <section class="lote-card lote-resumo-card">
+            <header class="lote-card-header"><div><span class="lote-step-number">3</span><div><h2>Resumo do orçamento</h2><p>Valores calculados para o lote atual.</p></div></div></header>
+            <div class="lote-resumo-linhas">
+              <div class="lote-resumo-linha"><span>Total de peças</span><strong id="lote-total-pecas">0</strong></div>
+              <div class="lote-resumo-linha"><span>Preço por peça (diluído)</span><strong id="lote-preco-unitario">R$ 0,00</strong></div>
+              <div class="lote-faixa" id="lote-faixa">Adicione produtos para calcular o valor do lote.</div>
+              <div class="lote-proximo-valor" id="lote-proximo-valor"></div>
+              <div class="lote-minimo-aviso" id="lote-minimo-aviso">Pedido mínimo: 10 peças.</div>
+              <div class="lote-resumo-total"><span>Valor total do lote</span><strong id="lote-valor-total">R$ 0,00</strong></div>
+            </div>
+            <div class="lote-resumo-acoes">
+              <button type="button" class="lote-gerar lote-primary-action">Gerar orçamento</button>
+              <button type="button" class="lote-whatsapp lote-secondary-action">Enviar pelo WhatsApp</button>
+              <button type="button" class="lote-pdf lote-secondary-action">Baixar PDF</button>
+              <a class="lote-ajuda" href="https://wa.me/5511999999999?text=Ol%C3%A1%2C%20preciso%20de%20ajuda%20com%20um%20pedido%20em%20lote." target="_blank" rel="noopener">Precisa de ajuda?</a>
+            </div>
+          </section>
+        </aside>
       </div>
 
+      <section class="lote-confianca" aria-label="Informações do pedido">
+        <div><span aria-hidden="true">◉</span><p>Pedido mínimo de 10 peças</p></div>
+        <div><span aria-hidden="true">⌁</span><p>Entrega para todo o Brasil</p></div>
+        <div><span aria-hidden="true">◇</span><p>Pagamento seguro</p></div>
+      </section>
     </div>
   </main>
-
+  <div class="lote-mobile-bar"><div><span>Total do lote</span><strong id="lote-mobile-total">R$ 0,00</strong></div><button type="button" class="lote-gerar">Gerar orçamento</button></div>
   <footer id="site-footer"></footer>
-
   <script type="module" src="js/pages/pedido-lote.js"></script>
 </body>
-
 </html>

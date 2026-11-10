@@ -250,7 +250,15 @@ export async function buscarProdutosSupabase() {
     console.error("Erro ao buscar produtos do Supabase:", error);
     return null;
   }
-  return data;
+  const { data: categorias, error: categoriasError } = await supabase
+    .from('categorias')
+    .select('id,nome');
+  if (categoriasError) console.warn("Nomes de categorias indisponíveis ao filtrar produtos:", categoriasError.message);
+  const nomesPorId = new Map((categorias || []).map(categoria => [String(categoria.id), categoria.nome]));
+  return (data || []).map(produto => ({
+    ...produto,
+    categoria_nome: nomesPorId.get(String(produto.categoria_id)) || produto.categoria_id
+  }));
 }
 
 /**
