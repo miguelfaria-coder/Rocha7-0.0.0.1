@@ -20,6 +20,21 @@ let activeView = "dashboard";
 let productCache = [];
 let categoryCache = [];
 
+function normalizarCategoriaProduto(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/babylook/g, 'baby look').replace(/[-_]+/g, ' ').trim();
+}
+
+function filtrarBabyLookProdutos(products, categories) {
+  const categoriasBabyLook = new Set(categories.filter(category => normalizarCategoriaProduto(category.nome).includes('baby look')).map(category => String(category.id)));
+  return products.filter(product => {
+    if (['prod-6', 'prod-7'].includes(String(product.id))) return false;
+    const name = normalizarCategoriaProduto(product.nome);
+    const style = normalizarCategoriaProduto(product.estilo);
+    const category = normalizarCategoriaProduto(product.categoria_id);
+    return !name.includes('baby look') && style !== 'baby look' && !category.includes('baby look') && !categoriasBabyLook.has(String(product.categoria_id));
+  });
+}
+
 document.addEventListener("DOMContentLoaded", initialize);
 
 async function initialize() {
@@ -135,8 +150,8 @@ async function loadView(view) {
       renderOrders(data.orders || []);
     } else if (view === "products") {
       data = await invokeAdmin("list_products");
-      productCache = data.products || [];
-      categoryCache = data.categories || [];
+      categoryCache = (data.categories || []).filter(category => !normalizarCategoriaProduto(category.nome).includes('baby look'));
+      productCache = filtrarBabyLookProdutos(data.products || [], data.categories || []);
       renderProducts();
     } else if (view === "customers") {
       data = await invokeAdmin("list_customers");
@@ -251,7 +266,7 @@ function renderProducts() {
   html += '<div><label for="product-category">Categoria</label><select name="categoria_id" id="product-category" required>' + categoryCache.map((category) => '<option value="' + escapeHtml(category.id) + '">' + escapeHtml(category.nome) + '</option>').join("") + '</select></div>';
   html += '<div><label for="product-price">Preço base (R$)</label><input name="preco_base" id="product-price" type="number" min="0" max="1000000" step="0.01" required></div>';
   html += '<div><label for="product-image">Caminho da imagem</label><input name="imagem" id="product-image" maxlength="500" placeholder="assets/img/produtos/camiseta.png" required></div>';
-  html += '<div><label for="product-style">Estilo</label><select name="estilo" id="product-style"><option value="normal">Normal</option><option value="polo">Polo</option><option value="baby-look">Baby look</option></select></div>';
+  html += '<div><label for="product-style">Estilo</label><select name="estilo" id="product-style"><option value="normal">Normal</option><option value="polo">Polo</option></select></div>';
   html += '<div><label for="product-type">Personalização</label><select name="tipo_personalizacao" id="product-type"><option value="lisa">Lisa</option><option value="pronta">Estampa pronta</option><option value="personalizavel">Personalizável</option></select></div>';
   html += '<div class="field-wide"><label for="product-description">Descrição</label><textarea name="descricao" id="product-description" maxlength="4000"></textarea></div>';
   html += '<div class="field-wide"><label for="product-colors">Cores disponíveis (separadas por vírgula)</label><input name="cores" id="product-colors" maxlength="1000" placeholder="preto, branco, azul-marinho"></div>';
@@ -358,11 +373,17 @@ async function handleViewSubmit(event) {
     destaque: $("#product-featured").checked,
     productId: String(formData.get("productId") || "")
   };
+  if (normalizarCategoriaProduto(product.nome).includes('baby look')) {
+    $("#app-notice").textContent = "Baby Look é uma modelagem, não um produto. Cadastre o modelo de camiseta ou polo e deixe a modelagem como opção.";
+    submit.disabled = false;
+    submit.textContent = "Salvar produto";
+    return;
+  }
   try {
     await invokeAdmin("save_product", { product });
     const response = await invokeAdmin("list_products");
-    productCache = response.products || [];
-    categoryCache = response.categories || [];
+    categoryCache = (response.categories || []).filter(category => !normalizarCategoriaProduto(category.nome).includes('baby look'));
+    productCache = filtrarBabyLookProdutos(response.products || [], response.categories || []);
     renderProducts();
     $("#app-notice").textContent = "Produto salvo com sucesso.";
   } catch (error) {
