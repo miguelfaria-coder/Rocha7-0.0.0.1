@@ -6,18 +6,33 @@ const SERVICE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "https://rocha7.vercel.app",
-  "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json; charset=utf-8",
-  "Cache-Control": "no-store, max-age=0",
-  "Vary": "Origin",
-  "X-Content-Type-Options": "nosniff",
-};
+const PRODUCTION_ORIGIN = "https://rocha7.devs.surf";
+const CONFIGURED_SITE_ORIGIN = (Deno.env.get("ROCHA7_SITE_URL") ?? PRODUCTION_ORIGIN).replace(/\/+$/, "");
+const ALLOWED_ORIGINS = new Set([
+  PRODUCTION_ORIGIN,
+  CONFIGURED_SITE_ORIGIN,
+  "https://rocha7-0-0-0-1.pages.dev",
+  "https://rocha7.miguel-faria-497.workers.dev",
+  "https://rocha7.vercel.app",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+]);
 
-const json = (status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeaders });
+function corsHeadersFor(origin: string) {
+  const headers = new Headers({
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store, max-age=0",
+    "Vary": "Origin",
+    "X-Content-Type-Options": "nosniff",
+  });
+  if (ALLOWED_ORIGINS.has(origin)) headers.set("Access-Control-Allow-Origin", origin);
+  return headers;
+}
+
+const json = (status: number, body: Record<string, unknown>, origin = "") =>
+  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(origin) });
 
 const trimmed = (value: unknown, max: number): string =>
   typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -113,31 +128,32 @@ function validateOrder(order: unknown, items: unknown, key: unknown) {
 
 Deno.serve(async (req: Request) => {
   const origin = req.headers.get("origin") || "";
+  const respond = (status: number, body: Record<string, unknown>) => json(status, body, origin);
   if (req.method === "OPTIONS") {
-    if (origin !== "https://rocha7.vercel.app") return json(403, { error: "Origem não autorizada." });
-    return new Response("ok", { headers: corsHeaders });
+    if (!ALLOWED_ORIGINS.has(origin)) return respond(403, { error: "Origem não autorizada." });
+    return new Response("ok", { headers: corsHeadersFor(origin) });
   }
-  if (origin && origin !== "https://rocha7.vercel.app") return json(403, { error: "Origem não autorizada." });
-  if (req.method !== "POST") return json(405, { error: "Método não permitido." });
-  if (!SUPABASE_URL || !SERVICE_KEY) return json(500, { error: "Checkout indisponível: configuração interna ausente." });
+  if (origin && !ALLOWED_ORIGINS.has(origin)) return respond(403, { error: "Origem não autorizada." });
+  if (req.method !== "POST") return respond(405, { error: "Método não permitido." });
+  if (!SUPABASE_URL || !SERVICE_KEY) return respond(500, { error: "Checkout indisponível: configuração interna ausente." });
 
   const contentLength = Number(req.headers.get("content-length") || "0");
-  if (contentLength > 65536) return json(413, { error: "Solicitação muito grande." });
+  if (contentLength > 65536) return respond(413, { error: "Solicitação muito grande." });
 
   let body: Record<string, unknown>;
   try {
     const raw = await req.text();
-    if (new TextEncoder().encode(raw).length > 65536) return json(413, { error: "Solicitação muito grande." });
+    if (new TextEncoder().encode(raw).length > 65536) return respond(413, { error: "Solicitação muito grande." });
     body = JSON.parse(raw);
   } catch {
-    return json(400, { error: "Corpo da solicitação inválido." });
+    return respond(400, { error: "Corpo da solicitação inválido." });
   }
 
   let validated: ReturnType<typeof validateOrder>;
   try {
     validated = validateOrder(body.order, body.items, body.idempotencyKey);
   } catch (error) {
-    return json(400, { error: error instanceof Error ? error.message : "Dados inválidos." });
+    return respond(400, { error: error instanceof Error ? error.message : "Dados inválidos." });
   }
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -150,10 +166,10 @@ Deno.serve(async (req: Request) => {
   const role = decodeJwtRole(bearer);
   if (role === "authenticated") {
     const { data, error } = await admin.auth.getUser(bearer);
-    if (error || !data.user) return json(401, { error: "Sua sessão expirou. Entre novamente e tente de novo." });
+    if (error || !data.user) return respond(401, { error: "Sua sessão expirou. Entre novamente e tente de novo." });
     userId = data.user.id;
   } else if (role && role !== "anon") {
-    return json(401, { error: "Credencial de autenticação inválida." });
+    return respond(401, { error: "Credencial de autenticação inválida." });
   }
 
   // Não permitir bypass do limitador por ausência de IP reconhecido pelo gateway.
@@ -162,7 +178,7 @@ Deno.serve(async (req: Request) => {
   // Evita confiar em x-real-ip, que pode ser fornecido pelo próprio cliente.
   const ip = (req.headers.get("cf-connecting-ip") || forwarded.at(-1) || "").trim();
   if (!ip || ip.length > 100 || /[^0-9a-fA-F:.,%]/.test(ip)) {
-    return json(503, { error: "Não foi possível verificar a origem da solicitação. Tente novamente." });
+    return respond(503, { error: "Não foi possível verificar a origem da solicitação. Tente novamente." });
   }
   {
     try {
@@ -170,12 +186,12 @@ Deno.serve(async (req: Request) => {
       const { data: allowed, error: rateError } = await admin.rpc("rocha7_checkout_allow_request", { p_ip_hash: ipHash });
       if (rateError) {
         console.error("Checkout rate-limit failure:", rateError.message);
-        return json(503, { error: "Checkout temporariamente indisponível. Tente novamente." });
+        return respond(503, { error: "Checkout temporariamente indisponível. Tente novamente." });
       }
-      if (allowed !== true) return json(429, { error: "Muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente." });
+      if (allowed !== true) return respond(429, { error: "Muitas tentativas em pouco tempo. Aguarde um minuto e tente novamente." });
     } catch (error) {
       console.error("Checkout rate-limit failure:", error);
-      return json(503, { error: "Checkout temporariamente indisponível. Tente novamente." });
+      return respond(503, { error: "Checkout temporariamente indisponível. Tente novamente." });
     }
   }
 
@@ -191,14 +207,14 @@ Deno.serve(async (req: Request) => {
       let query = admin.from("pedidos").select("id, valor_total").eq("idempotencia_id", validated.idempotencyKey);
       query = userId ? query.eq("usuario_id", userId) : query.is("usuario_id", null);
       const { data: existing } = await query.maybeSingle();
-      if (existing) return json(200, { pedido: { ...existing, repetido: true } });
+      if (existing) return respond(200, { pedido: { ...existing, repetido: true } });
     }
     console.error("Secure checkout database failure:", error.code, error.message);
     const clientError = ["22023", "23514", "23503"].includes(error.code || "");
-    return json(clientError ? 400 : 500, {
+    return respond(clientError ? 400 : 500, {
       error: clientError ? "Não foi possível validar os dados do pedido. Confira as informações." : "Não foi possível registrar o pedido. Tente novamente.",
     });
   }
 
-  return json(200, { pedido: data });
+  return respond(200, { pedido: data });
 });
