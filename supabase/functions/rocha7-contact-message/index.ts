@@ -6,6 +6,9 @@ const SERVICE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 const ALLOWED_ORIGINS = new Set([
+  "https://rocha7.devs.surf",
+  "https://rocha7-0-0-0-1.pages.dev",
+  "https://rocha7.miguel-faria-497.workers.dev",
   "https://rocha7.vercel.app",
   "http://localhost:5500",
   "http://127.0.0.1:5500",
