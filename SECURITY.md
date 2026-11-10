@@ -9,8 +9,10 @@
 - Logs internos e tabelas de rate limit ficam no schema não exposto `private`; o acesso é restrito ao papel de servidor.
 - Todas as tabelas restantes no schema `public` têm RLS habilitado. Existem constraints server-side para validação de mensagens e status de pedidos.
 - O checkout limita tentativas por janela de um minuto e o formulário de contato por janela de dez minutos; os IPs de rate limit são armazenados como HMAC, não como IP bruto.
-- CORS administrativo e do checkout são limitados a origens específicas; o SDK do Supabase no navegador está fixado numa versão explícita.
-- A implantação está configurada para excluir backups, dependências e fontes internas de backend dos arquivos estáticos servidos pelo Vercel.
+- CORS administrativo, contato e checkout autorizam o domínio de produção Cloudflare Pages, o hostname canônico Pages e a origem Vercel legada durante a transição; o SDK do Supabase no navegador está fixado numa versão explícita.
+- Cloudflare Pages publica somente o diretório `dist/`, montado por `scripts/build-pages.sh`; backend PHP legado, backups, dependências, SQL e fontes internas não entram no artefato público.
+- Cabeçalhos HTTP de segurança e a rota administrativa `/admin` são configurados pelos arquivos `_headers` e `_redirects` do Pages.
+- A implantação Vercel de fallback mantém suas exclusões em `.vercelignore`; no Cloudflare Pages, a exclusão é garantida pelo artefato `dist/`.
 
 ## Migrações de produção aplicadas
 - `20261020123748_rocha7_private_rate_limits_and_constraints`
