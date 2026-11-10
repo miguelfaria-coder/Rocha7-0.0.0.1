@@ -202,7 +202,7 @@ function initCheckout() {
             </div>
 
             <button type="submit" class="btn btn-primario btn-lg btn-full">
-              Confirmar & Gerar Pedido
+              Ir para pagamento seguro
             </button>
           </form>
         </div>
@@ -228,7 +228,7 @@ function initCheckout() {
             <span class="valor">${formatBRL(summary.valorTotal)}</span>
           </div>
 
-          <p class="texto-xs texto-sec">Após a confirmação, nossa equipe entrará em contato via WhatsApp para aprovação da amostra virtual da estampa!</p>
+          <p class="texto-xs texto-sec">O valor é validado no servidor. O pagamento será processado no ambiente seguro do Stripe; cartão e Pix aparecem conforme a disponibilidade da conta.</p>
         </div>
       </div>
     `;
@@ -246,7 +246,7 @@ function initCheckout() {
         const submitBtn = formCheckout.querySelector('button[type="submit"]');
         if (submitBtn) {
           submitBtn.disabled = true;
-          submitBtn.textContent = "Gravando Pedido...";
+          submitBtn.textContent = "Preparando pagamento...";
         }
 
         const nome = document.getElementById("check-nome")?.value || "";
@@ -295,7 +295,7 @@ function initCheckout() {
         let falhaAoSalvarPerfil = false;
         const salvarPerfilSolicitado = Boolean(document.getElementById("check-salvar-perfil")?.checked);
         try {
-          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario } = await import('../supabase.js');
+          const { criarPedidoSupabase, obterUsuarioAtual, atualizarPerfilUsuario, getSupabaseClient } = await import('../supabase.js');
           const usuario = await obterUsuarioAtual();
           if (usuario) dadosPedido.usuarioId = usuario.id;
 
@@ -316,9 +316,34 @@ function initCheckout() {
 
           dadosPedido.idempotenciaId = await getCheckoutAttemptKey(dadosPedido, summary.items);
           pedidoConfirmado = await criarPedidoSupabase(dadosPedido, summary.items);
-          try { localStorage.removeItem(CHECKOUT_ATTEMPT_STORAGE_KEY); } catch {}
-          checkoutAttemptMemory = null;
-          console.log("Pedido salvo com confirmação do servidor.");
+
+          // A sessão Stripe é criada no servidor usando os valores já gravados no Supabase.
+          const supabase = getSupabaseClient();
+          if (!supabase) throw new Error("Não foi possível iniciar a conexão segura de pagamento.");
+          const { data: checkoutStripe, error: stripeError } = await supabase.functions.invoke("rocha7-stripe-checkout", {
+            body: {
+              action: "create",
+              pedidoId: String(pedidoConfirmado.id),
+              idempotencyKey: dadosPedido.idempotenciaId
+            }
+          });
+          if (stripeError) {
+            let detail = stripeError.message || "Não foi possível iniciar o pagamento.";
+            try {
+              const response = stripeError.context;
+              if (response && typeof response.json === "function") {
+                const body = await response.json();
+                if (body && typeof body.error === "string") detail = body.error;
+              }
+            } catch {}
+            throw new Error(detail);
+          }
+          const checkoutUrl = new URL(checkoutStripe && checkoutStripe.url ? checkoutStripe.url : "");
+          if (checkoutUrl.protocol !== "https:" || checkoutUrl.hostname !== "checkout.stripe.com") {
+            throw new Error("O Stripe não retornou um endereço de pagamento válido.");
+          }
+          window.location.assign(checkoutUrl.toString());
+          return;
         } catch (err) {
           console.error("Falha ao salvar pedido no Supabase:", err);
           container.innerHTML = `

@@ -14,7 +14,8 @@ const VIEW_INFO = {
   dashboard: ["Visão geral", "Resumo atualizado da operação da loja."],
   orders: ["Pedidos", "Consulte os detalhes e atualize o andamento dos pedidos."],
   products: ["Produtos", "Cadastre produtos e edite preço, descrição e disponibilidade no catálogo."],
-  customers: ["Clientes", "Consulte os dados básicos das contas cadastradas."]
+  customers: ["Clientes", "Consulte os dados básicos das contas cadastradas."],
+  messages: ["Mensagens", "Leia e acompanhe as mensagens enviadas pelo formulário de contato."]
 };
 let activeView = "dashboard";
 let productCache = [];
@@ -156,6 +157,9 @@ async function loadView(view) {
     } else if (view === "customers") {
       data = await invokeAdmin("list_customers");
       renderCustomers(data.customers || []);
+    } else if (view === "messages") {
+      data = await invokeAdmin("list_messages");
+      renderMessages(data.messages || []);
     }
   } catch (error) {
     $("#view-container").innerHTML = '<div class="empty-state">Não foi possível carregar esta seção.</div>';
@@ -316,6 +320,28 @@ function renderCustomers(customers) {
   $("#view-container").innerHTML = html;
 }
 
+function renderMessages(messages) {
+  const unread = messages.filter((message) => !message.lido).length;
+  let html = '<section class="table-panel"><div class="table-head"><h2>Caixa de entrada</h2><span class="badge">' + unread + ' não lidas • ' + messages.length + ' exibidas</span></div>';
+  if (!messages.length) html += '<div class="empty-state">Nenhuma mensagem de contato recebida.</div>';
+  else {
+    html += '<div class="table-scroll"><table><thead><tr><th>Remetente</th><th>Contato</th><th>Recebida em</th><th>Mensagem</th><th>Status</th></tr></thead><tbody>';
+    messages.forEach((message) => {
+      const id = escapeHtml(message.id);
+      html += '<tr class="' + (message.lido ? "" : "message-unread") + '">';
+      html += '<td><strong>' + escapeHtml(message.nome) + '</strong></td>';
+      html += '<td><a href="mailto:' + escapeHtml(message.email) + '">' + escapeHtml(message.email) + '</a><span class="table-sub">' + escapeHtml(message.telefone || "—") + '</span></td>';
+      html += '<td>' + escapeHtml(formatDate(message.criado_em)) + '</td>';
+      html += '<td><details><summary>Ver mensagem</summary><div class="message-body">' + escapeHtml(message.mensagem || "") + '</div></details></td>';
+      html += '<td>' + (message.lido ? '<span class="badge">Lida</span>' : '<div class="row-actions"><span class="badge pending">Nova</span><button class="button small-button" type="button" data-mark-message-read="' + id + '">Marcar como lida</button></div>') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  html += '</section><p class="table-sub">As mensagens são consultadas no servidor e só ficam visíveis após a validação da permissão administrativa.</p>';
+  $("#view-container").innerHTML = html;
+}
+
 async function handleViewClick(event) {
   const button = event.target.closest("button");
   if (!button) return;
@@ -330,6 +356,21 @@ async function handleViewClick(event) {
   }
   if (button.id === "product-cancel") {
     fillProductForm(null);
+    return;
+  }
+  if (button.dataset.markMessageRead) {
+    const id = button.dataset.markMessageRead;
+    button.disabled = true;
+    button.textContent = "Salvando…";
+    try {
+      await invokeAdmin("mark_message_read", { messageId: id });
+      await loadView("messages");
+      $("#app-notice").textContent = "Mensagem marcada como lida.";
+    } catch (error) {
+      $("#app-notice").textContent = error.message || "Não foi possível atualizar a mensagem.";
+      button.disabled = false;
+      button.textContent = "Marcar como lida";
+    }
     return;
   }
   if (button.dataset.saveOrder) {

@@ -184,6 +184,26 @@ async function listCustomers(db: ReturnType<typeof createClient>) {
   return { customers: data ?? [] };
 }
 
+async function listMessages(db: ReturnType<typeof createClient>) {
+  const { data, error } = await db.from("mensagens_contato")
+    .select("id,nome,email,telefone,mensagem,lido,status,criado_em")
+    .order("criado_em", { ascending: false }).limit(100);
+  if (error) throw error;
+  return { messages: data ?? [] };
+}
+
+async function markMessageRead(db: ReturnType<typeof createClient>, rawId: unknown) {
+  const id = text(rawId, 80);
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
+    throw new Error("Identificador de mensagem inválido.");
+  }
+  const { data, error } = await db.from("mensagens_contato").update({ lido: true })
+    .eq("id", id).select("id,lido").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Mensagem não encontrada.");
+  return { message: data };
+}
+
 async function updateOrderStatus(db: ReturnType<typeof createClient>, rawId: unknown, rawStatus: unknown) {
   const orderId = text(rawId, 80);
   const status = text(rawStatus, 40);
@@ -249,6 +269,12 @@ Deno.serve(async (req: Request) => {
       case "list_customers":
         result = await listCustomers(db);
         break;
+      case "list_messages":
+        result = await listMessages(db);
+        break;
+      case "mark_message_read":
+        result = await markMessageRead(db, body.messageId);
+        break;
       default:
         return json(400, bad("Operação administrativa inválida."), origin);
     }
@@ -256,7 +282,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("Rocha7 admin operation failed:", error instanceof Error ? error.message : "unknown error");
     const safeMessage = error instanceof Error &&
-      ["Informe um nome de produto válido.", "Informe um preço entre R$ 0 e R$ 1.000.000.", "Informe um caminho de imagem válido.", "Estilo inválido.", "Tipo de personalização inválido.", "Selecione uma categoria existente.", "Identificador de pedido inválido.", "Status não permitido.", "Pedido não encontrado.", "Dados do produto inválidos."].includes(error.message)
+      ["Informe um nome de produto válido.", "Informe um preço entre R$ 0 e R$ 1.000.000.", "Informe um caminho de imagem válido.", "Estilo inválido.", "Tipo de personalização inválido.", "Selecione uma categoria existente.", "Identificador de pedido inválido.", "Status não permitido.", "Pedido não encontrado.", "Dados do produto inválidos.", "Identificador de mensagem inválido.", "Mensagem não encontrada."].includes(error.message)
       ? error.message
       : "Não foi possível concluir a operação administrativa.";
     return json(400, bad(safeMessage), origin);
