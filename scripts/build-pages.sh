@@ -13,3 +13,7 @@ cp "$ROOT_DIR"/*.html "$OUTPUT_DIR"/
 cp "$ROOT_DIR"/*.png "$OUTPUT_DIR"/
 cp -R "$ROOT_DIR/css" "$ROOT_DIR/js" "$ROOT_DIR/assets" "$OUTPUT_DIR"/
 cp "$ROOT_DIR/_headers" "$ROOT_DIR/_redirects" "$OUTPUT_DIR"/
+
+# Publish a directory index so /admin resolves without relying only on _redirects.
+mkdir -p "$OUTPUT_DIR/admin"
+cp "$ROOT_DIR/admin.html" "$OUTPUT_DIR/admin/index.html"
