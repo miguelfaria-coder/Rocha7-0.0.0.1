@@ -8,7 +8,9 @@ O front-end usa Supabase Auth para login e cadastro com e-mail/senha e OAuth do 
 2. Configure Branding e Audience/consentimento. Para uma aplicação externa em modo de teste, adicione as contas de Google que farão os testes como usuários de teste. Publique a aplicação quando estiver pronta para uso geral, conforme os requisitos do Google.
 3. Em Clients, crie um OAuth client ID do tipo **Web application**.
 4. Em **Authorized JavaScript origins**, adicione:
-   `https://rocha7.vercel.app`
+   `https://rocha7.devs.surf`
+   `https://rocha7-0-0-0-1.pages.dev` (Pages hostname)
+   `https://rocha7.vercel.app` (fallback during migration)
 5. Em **Authorized redirect URIs**, adicione o callback exibido no painel do Supabase. Para este projeto, o callback padrão é:
    `https://tqixpmfpqegxkfwqxasa.supabase.co/auth/v1/callback`
 6. Salve e copie o Client ID e o Client Secret.
@@ -25,10 +27,11 @@ Referência oficial: https://supabase.com/docs/guides/auth/social-login/auth-goo
 
 No [Supabase — URL Configuration](https://supabase.com/dashboard/project/tqixpmfpqegxkfwqxasa/auth/url-configuration):
 
-- **Site URL:** `https://rocha7.vercel.app`
+- **Site URL:** `https://rocha7.devs.surf`
 - **Redirect URLs** (adicionar como entradas exatas):
-  - `https://rocha7.vercel.app/index.html`
-  - `https://rocha7.vercel.app/login.html`
+  - `https://rocha7.devs.surf/**`
+  - `https://rocha7-0-0-0-1.pages.dev/**`
+  - `https://rocha7.vercel.app/**` (fallback during migration)
   - Para desenvolvimento local, se usado: `http://localhost:5500/index.html`
   - Para desenvolvimento local, se usado: `http://127.0.0.1:5500/index.html`
 
@@ -39,7 +42,7 @@ O código do site usa como destino primário `/index.html` na origem oficial. Em
 Em **Authentication → Settings** (o nome exato pode variar na versão do painel), confirme que os novos cadastros não estão desabilitados.
 
 Depois, teste:
-1. Abra https://rocha7.vercel.app/login.html
+1. Abra https://rocha7.devs.surf/login.html
 2. Clique em **Cadastrar com o Google** e autorize uma conta Google que ainda não tenha sido cadastrada na Rocha7.
 3. Confirme que a conta retorna para a página inicial e que o cabeçalho mostra o usuário conectado.
 4. Saia da conta e clique em **Entrar com o Google** usando a mesma conta.

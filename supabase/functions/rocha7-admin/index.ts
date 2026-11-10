@@ -6,12 +6,19 @@ const SERVICE_KEY =
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   (SECRET_KEYS ? (() => { try { return JSON.parse(SECRET_KEYS).default ?? ""; } catch { return ""; } })() : "");
 const ALLOWED_STATUSES = new Set(["pendente", "confirmado", "em_producao", "enviado", "concluido", "cancelado"]);
-const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, criado_em, atualizado_em";
+const SELECTED_ORDER_FIELDS = "id, usuario_id, nome_cliente, email_cliente, telefone_whatsapp, endereco_entrega, cep, forma_pagamento, status, tipo_pedido, valor_total, observacoes, cpf_cliente, pagamento_status, stripe_payment_method_type, pagamento_confirmado_em, criado_em, atualizado_em";
+
+const PRODUCTION_ORIGIN = "https://rocha7.devs.surf";
+const CONFIGURED_SITE_ORIGIN = (Deno.env.get("ROCHA7_SITE_URL") ?? PRODUCTION_ORIGIN).replace(/\/+$/, "");
 
 function isAllowedOrigin(origin: string) {
-  // Only the production origin and explicit local-development origins are trusted.
-  // Arbitrary Vercel preview domains are deliberately excluded.
-  return origin === "https://rocha7.vercel.app" ||
+  // Production and local development are allowed, plus the single explicit
+  // preview origin configured by the project owner (never wildcard preview domains).
+  return origin === PRODUCTION_ORIGIN ||
+    origin === "https://rocha7-0-0-0-1.pages.dev" ||
+    origin === "https://rocha7.miguel-faria-497.workers.dev" ||
+    origin === "https://rocha7.vercel.app" ||
+    origin === CONFIGURED_SITE_ORIGIN ||
     origin === "http://localhost:5500" ||
     origin === "http://127.0.0.1:5500";
 }
@@ -72,7 +79,7 @@ async function dashboard(db: ReturnType<typeof createClient>) {
     db.from("pedidos").select("id", { count: "exact", head: true }).eq("status", "pendente"),
     db.from("produtos").select("id", { count: "exact", head: true }),
     db.from("usuarios").select("id", { count: "exact", head: true }),
-    db.from("pedidos").select("id,nome_cliente,email_cliente,status,valor_total,criado_em").order("criado_em", { ascending: false }).limit(8),
+    db.from("pedidos").select("id,nome_cliente,email_cliente,status,pagamento_status,valor_total,criado_em").order("criado_em", { ascending: false }).limit(8),
   ]);
   for (const result of [orders, pending, products, customers, latest]) {
     if (result.error) throw result.error;
@@ -116,22 +123,7 @@ async function listProducts(db: ReturnType<typeof createClient>) {
   ]);
   if (products.error) throw products.error;
   if (categories.error) throw categories.error;
-  const allCategories = categories.data ?? [];
-  const hiddenCategoryIds = new Set(allCategories
-    .filter((category: { id: string; nome: string }) => normalizeProductText(category.nome).includes("baby look"))
-    .map((category: { id: string }) => String(category.id)));
-  const visibleCategories = allCategories.filter((category: { nome: string }) => !normalizeProductText(category.nome).includes("baby look"));
-  const visibleProducts = (products.data ?? []).filter((product: { id: string; nome: string; estilo: string; categoria_id: string }) =>
-    !["prod-6", "prod-7"].includes(String(product.id)) &&
-    !normalizeProductText(product.nome).includes("baby look") &&
-    normalizeProductText(product.estilo) !== "baby look" &&
-    !normalizeProductText(product.categoria_id).includes("baby look") &&
-    !hiddenCategoryIds.has(String(product.categoria_id)));
-  return { products: visibleProducts, categories: visibleCategories };
-}
-
-function normalizeProductText(value: unknown): string {
-  return String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/babylook/g, "baby look").replace(/[-_]+/g, " ").trim();
+  return { products: products.data ?? [], categories: categories.data ?? [] };
 }
 
 async function saveProduct(db: ReturnType<typeof createClient>, raw: unknown) {
@@ -153,14 +145,12 @@ async function saveProduct(db: ReturnType<typeof createClient>, raw: unknown) {
   if (name.length < 2) throw new Error("Informe um nome de produto válido.");
   if (!Number.isFinite(price) || price < 0 || price > 1000000) throw new Error("Informe um preço entre R$ 0 e R$ 1.000.000.");
   if (!image || image.length > 500 || /[\u0000-\u001f]/.test(image)) throw new Error("Informe um caminho de imagem válido.");
-  if (!["normal", "polo"].includes(style)) throw new Error("Invalid product style.");
-  if (normalizeProductText(name).includes("baby look")) throw new Error("Baby Look nao e produto; e uma modelagem.");
+  if (!["normal", "polo", "baby-look"].includes(style)) throw new Error("Estilo inválido.");
   if (!["lisa", "pronta", "personalizavel"].includes(personalization)) throw new Error("Tipo de personalização inválido.");
 
-  const { data: category, error: categoryError } = await db.from("categorias").select("id,nome").eq("id", categoryId).maybeSingle();
+  const { data: category, error: categoryError } = await db.from("categorias").select("id").eq("id", categoryId).maybeSingle();
   if (categoryError) throw categoryError;
   if (!category) throw new Error("Selecione uma categoria existente.");
-  if (normalizeProductText(category.nome).includes("baby look")) throw new Error("Use uma categoria de produto; Baby Look nao e categoria de produto.");
 
   const values = {
     nome: name,
