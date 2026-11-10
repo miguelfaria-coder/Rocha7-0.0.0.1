@@ -20,6 +20,15 @@ const VIEW_INFO = {
 let activeView = "dashboard";
 let productCache = [];
 let categoryCache = [];
+let orderCache = [];
+let customerCache = [];
+let messageCache = [];
+const adminFilters = {
+  orders: { search: "", status: "", sort: "newest" },
+  products: { search: "", category: "", type: "", featured: "", sort: "name" },
+  customers: { search: "", sort: "newest" },
+  messages: { search: "", status: "", sort: "newest" }
+};
 
 function normalizarCategoriaProduto(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/babylook/g, 'baby look').replace(/[-_]+/g, ' ').trim();
@@ -45,6 +54,8 @@ async function initialize() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => loadView(button.dataset.view)));
   $("#view-container").addEventListener("click", handleViewClick);
   $("#view-container").addEventListener("submit", handleViewSubmit);
+  $("#view-container").addEventListener("input", handleFilterInput);
+  $("#view-container").addEventListener("change", handleFilterInput);
 
   const client = getSupabaseClient();
   if (!client) {
@@ -199,6 +210,45 @@ function formatDate(value) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
+ 
+function filterToolbar(view, total, controls) {
+  const search = '<input class="filter-search" type="search" data-filter-view="' + view + '" data-filter="search" placeholder="Buscar..." aria-label="Buscar" value="' + escapeHtml(adminFilters[view].search) + '">';
+  const selects = controls.map((control) => {
+    const options = control.options.map((option) => '<option value="' + escapeHtml(option[0]) + '"' + (adminFilters[view][control.key] === option[0] ? " selected" : "") + '>' + escapeHtml(option[1]) + '</option>').join("");
+    return '<select class="filter-select" data-filter-view="' + view + '" data-filter="' + control.key + '" aria-label="' + escapeHtml(control.label) + '">' + options + '</select>';
+  }).join("");
+  return '<div class="admin-filters">' + search + selects + '<span class="filter-count">Exibindo ' + total + '</span></div>';
+}
+
+function handleFilterInput(event) {
+  const target = event.target;
+  const view = target.dataset.filterView;
+  const key = target.dataset.filter;
+  if (!view || !key || !adminFilters[view]) return;
+  if (event.type === "input" && target.tagName !== "INPUT") return;
+  adminFilters[view][key] = target.value;
+  const selection = target.tagName === "INPUT" ? target.selectionStart : null;
+  const selector = '[data-filter-view="' + view + '"][data-filter="' + key + '"]';
+  if (view === "orders") renderOrdersView();
+  else if (view === "products") renderProducts();
+  else if (view === "customers") renderCustomersView();
+  else if (view === "messages") renderMessagesView();
+  const replacement = $(selector);
+  if (replacement) {
+    replacement.focus();
+    if (selection !== null && replacement.setSelectionRange) replacement.setSelectionRange(selection, selection);
+  }
+}
+
+function normalizeSearch(value) {
+  return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+}
+
+function compareDate(a, b, field, direction) {
+  const left = new Date(a[field] || 0).getTime() || 0;
+  const right = new Date(b[field] || 0).getTime() || 0;
+  return (left - right) * direction;
+}
 
 function renderDashboard(data) {
   const stats = data.stats || {};
@@ -228,27 +278,50 @@ function renderRecentOrders(orders) {
 }
 
 function renderOrders(orders) {
-  if (!orders.length) {
-    $("#view-container").innerHTML = '<section class="table-panel"><div class="empty-state">Nenhum pedido encontrado.</div></section>';
-    return;
-  }
-  let html = '<section class="table-panel"><div class="table-head"><h2>Pedidos registrados</h2><span class="badge">' + orders.length + ' exibidos</span></div><div class="table-scroll"><table><thead><tr><th>Pedido / data</th><th>Cliente</th><th>Total</th><th>Status</th><th>Detalhes</th></tr></thead><tbody>';
-  orders.forEach((order) => {
-    const id = escapeHtml(order.id);
-    const options = STATUS_OPTIONS.map((option) => '<option value="' + option[0] + '"' + (order.status === option[0] ? " selected" : "") + '>' + option[1] + '</option>').join("");
-    const items = Array.isArray(order.itens) ? order.itens : [];
-    let detail = '<div><strong>Entrega:</strong> ' + escapeHtml(order.endereco_entrega) + ', CEP ' + escapeHtml(order.cep) + '</div>';
-    detail += '<div><strong>Telefone:</strong> ' + escapeHtml(order.telefone_whatsapp) + '</div>';
-    detail += '<div><strong>CPF/CNPJ:</strong> ' + escapeHtml(order.cpf_cliente || "Não informado") + '</div>';
-    detail += '<div><strong>Pagamento:</strong> ' + escapeHtml(order.forma_pagamento) + ' • <strong>Tipo:</strong> ' + escapeHtml(order.tipo_pedido) + '</div>';
-    if (order.observacoes) detail += '<div><strong>Observações:</strong> ' + escapeHtml(order.observacoes) + '</div>';
-    detail += '<ul>' + items.map((item) => '<li>' + escapeHtml(item.quantidade) + '× ' + escapeHtml(item.nome_produto) + ' — ' + escapeHtml(item.tamanho) + ', ' + escapeHtml(item.cor) + ' (' + escapeHtml(formatMoney(item.subtotal)) + ')</li>').join("") + '</ul>';
-    html += '<tr><td><strong>' + escapeHtml(shortId(order.id)) + '</strong><span class="table-sub">' + escapeHtml(formatDate(order.criado_em)) + '</span></td>';
-    html += '<td>' + escapeHtml(order.nome_cliente) + '<span class="table-sub">' + escapeHtml(order.email_cliente) + '</span></td><td><strong>' + escapeHtml(formatMoney(order.valor_total)) + '</strong></td>';
-    html += '<td><div class="row-actions"><select class="status-select" aria-label="Status do pedido ' + id + '" data-status-order="' + id + '">' + options + '</select><button class="button small-button" type="button" data-save-order="' + id + '">Salvar</button></div></td>';
-    html += '<td><details><summary>Ver dados</summary><div class="order-detail">' + detail + '</div></details></td></tr>';
+  orderCache = Array.isArray(orders) ? orders : [];
+  renderOrdersView();
+}
+
+function renderOrdersView() {
+  const filters = adminFilters.orders;
+  const term = normalizeSearch(filters.search);
+  let orders = orderCache.filter((order) => {
+    const haystack = normalizeSearch([order.id, shortId(order.id), order.nome_cliente, order.email_cliente, order.telefone_whatsapp, ...(order.itens || []).map((item) => item.nome_produto)].join(" "));
+    return (!term || haystack.includes(term)) && (!filters.status || order.status === filters.status);
   });
-  html += '</tbody></table></div></section>';
+  const sorters = {
+    newest: (a,b) => compareDate(a,b,"criado_em",-1),
+    oldest: (a,b) => compareDate(a,b,"criado_em",1),
+    "value-high": (a,b) => (Number(b.valor_total)||0) - (Number(a.valor_total)||0),
+    "value-low": (a,b) => (Number(a.valor_total)||0) - (Number(b.valor_total)||0)
+  };
+  orders.sort(sorters[filters.sort] || sorters.newest);
+  let html = '<section class="table-panel"><div class="table-head"><h2>Pedidos registrados</h2><span class="badge">' + orderCache.length + ' no total</span></div>';
+  html += filterToolbar("orders", orders.length, [
+    { key: "status", label: "Filtrar por status", options: [["","Todos os status"], ...STATUS_OPTIONS] },
+    { key: "sort", label: "Ordenar pedidos", options: [["newest","Mais recentes"],["oldest","Mais antigos"],["value-high","Maior valor"],["value-low","Menor valor"]] }
+  ]);
+  if (!orders.length) html += '<div class="empty-state">' + (orderCache.length ? "Nenhum pedido corresponde aos filtros." : "Nenhum pedido encontrado.") + '</div>';
+  else {
+    html += '<div class="table-scroll"><table><thead><tr><th>Pedido / data</th><th>Cliente</th><th>Total</th><th>Status</th><th>Detalhes</th></tr></thead><tbody>';
+    orders.forEach((order) => {
+      const id = escapeHtml(order.id);
+      const options = STATUS_OPTIONS.map((option) => '<option value="' + option[0] + '"' + (order.status === option[0] ? " selected" : "") + '>' + option[1] + '</option>').join("");
+      const items = Array.isArray(order.itens) ? order.itens : [];
+      let detail = '<div><strong>Entrega:</strong> ' + escapeHtml(order.endereco_entrega) + ', CEP ' + escapeHtml(order.cep) + '</div>';
+      detail += '<div><strong>Telefone:</strong> ' + escapeHtml(order.telefone_whatsapp) + '</div>';
+      detail += '<div><strong>CPF/CNPJ:</strong> ' + escapeHtml(order.cpf_cliente || "Não informado") + '</div>';
+      detail += '<div><strong>Pagamento:</strong> ' + escapeHtml(order.forma_pagamento) + ' • <strong>Tipo:</strong> ' + escapeHtml(order.tipo_pedido) + '</div>';
+      if (order.observacoes) detail += '<div><strong>Observações:</strong> ' + escapeHtml(order.observacoes) + '</div>';
+      detail += '<ul>' + items.map((item) => '<li>' + escapeHtml(item.quantidade) + '× ' + escapeHtml(item.nome_produto) + ' — ' + escapeHtml(item.tamanho) + ', ' + escapeHtml(item.cor) + ' (' + escapeHtml(formatMoney(item.subtotal)) + ')</li>').join("") + '</ul>';
+      html += '<tr><td><strong>' + escapeHtml(shortId(order.id)) + '</strong><span class="table-sub">' + escapeHtml(formatDate(order.criado_em)) + '</span></td>';
+      html += '<td>' + escapeHtml(order.nome_cliente) + '<span class="table-sub">' + escapeHtml(order.email_cliente) + '</span></td><td><strong>' + escapeHtml(formatMoney(order.valor_total)) + '</strong></td>';
+      html += '<td><div class="row-actions"><select class="status-select" aria-label="Status do pedido ' + id + '" data-status-order="' + id + '">' + options + '</select><button class="button small-button" type="button" data-save-order="' + id + '">Salvar</button></div></td>';
+      html += '<td><details><summary>Ver dados</summary><div class="order-detail">' + detail + '</div></details></td></tr>';
+    });
+    html += '</tbody></table></div>';
+  }
+  html += '</section>';
   $("#view-container").innerHTML = html;
 }
 
@@ -264,6 +337,22 @@ function shortId(value) {
 }
 
 function renderProducts() {
+  const filters = adminFilters.products;
+  const term = normalizeSearch(filters.search);
+  let products = productCache.filter((product) => {
+    const category = categoryCache.find((entry) => entry.id === product.categoria_id);
+    const haystack = normalizeSearch([product.nome, product.id, product.descricao, category && category.nome, product.tipo_personalizacao].join(" "));
+    return (!term || haystack.includes(term)) &&
+      (!filters.category || String(product.categoria_id) === filters.category) &&
+      (!filters.type || product.tipo_personalizacao === filters.type) &&
+      (!filters.featured || String(!!product.destaque) === filters.featured);
+  });
+  const sorters = {
+    name: (a,b) => String(a.nome||"").localeCompare(String(b.nome||""),"pt-BR"),
+    "price-high": (a,b) => (Number(b.preco_base)||0) - (Number(a.preco_base)||0),
+    "price-low": (a,b) => (Number(a.preco_base)||0) - (Number(b.preco_base)||0)
+  };
+  products.sort(sorters[filters.sort] || sorters.name);
   let html = '<section class="panel"><div class="panel-heading"><div><h2 class="form-section-title" id="product-form-title">Cadastrar produto</h2><p class="form-description">Produtos cadastrados aqui são salvos no catálogo do banco de dados.</p></div></div>';
   html += '<form id="product-form" class="product-form"><input type="hidden" name="productId" id="product-id">';
   html += '<div><label for="product-name">Nome</label><input name="nome" id="product-name" maxlength="160" required></div>';
@@ -276,11 +365,17 @@ function renderProducts() {
   html += '<div class="field-wide"><label for="product-colors">Cores disponíveis (separadas por vírgula)</label><input name="cores" id="product-colors" maxlength="1000" placeholder="preto, branco, azul-marinho"></div>';
   html += '<div class="field-wide"><label class="checkbox-row"><input type="checkbox" name="destaque" id="product-featured"> Exibir entre os destaques</label></div>';
   html += '<div class="field-wide form-actions"><button class="button button-primary" type="submit">Salvar produto</button><button class="button" id="product-cancel" type="button">Limpar formulário</button></div></form></section>';
-  html += '<section class="table-panel"><div class="table-head"><h2>Catálogo</h2><span class="badge">' + productCache.length + ' produtos</span></div>';
-  if (!productCache.length) html += '<div class="empty-state">Não há produtos cadastrados.</div>';
+  html += '<section class="table-panel"><div class="table-head"><h2>Catálogo</h2><span class="badge">' + productCache.length + ' no total</span></div>';
+  html += filterToolbar("products", products.length, [
+    { key: "category", label: "Filtrar por categoria", options: [["","Todas as categorias"], ...categoryCache.map((category) => [String(category.id), category.nome])] },
+    { key: "type", label: "Filtrar por personalização", options: [["","Todos os tipos"],["lisa","Lisa"],["pronta","Estampa pronta"],["personalizavel","Personalizável"]] },
+    { key: "featured", label: "Filtrar por destaque", options: [["","Todos"],["true","Em destaque"],["false","Sem destaque"]] },
+    { key: "sort", label: "Ordenar produtos", options: [["name","Nome A–Z"],["price-high","Maior preço"],["price-low","Menor preço"]] }
+  ]);
+  if (!products.length) html += '<div class="empty-state">' + (productCache.length ? "Nenhum produto corresponde aos filtros." : "Não há produtos cadastrados.") + '</div>';
   else {
     html += '<div class="table-scroll"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Preço base</th><th>Tipo</th><th>Destaque</th><th>Ação</th></tr></thead><tbody>';
-    productCache.forEach((product) => {
+    products.forEach((product) => {
       const category = categoryCache.find((entry) => entry.id === product.categoria_id);
       html += '<tr><td><strong>' + escapeHtml(product.nome) + '</strong><span class="table-sub">' + escapeHtml(product.id) + '</span></td><td>' + escapeHtml(category ? category.nome : product.categoria_id) + '</td><td><strong>' + escapeHtml(formatMoney(product.preco_base)) + '</strong></td><td>' + escapeHtml(product.tipo_personalizacao) + '</td><td>' + (product.destaque ? "Sim" : "Não") + '</td><td><button class="button small-button" type="button" data-edit-product="' + escapeHtml(product.id) + '">Editar</button></td></tr>';
     });
@@ -288,7 +383,6 @@ function renderProducts() {
   }
   html += '</section>';
   $("#view-container").innerHTML = html;
-  $("#product-form").addEventListener("reset", () => {});
 }
 
 function fillProductForm(product) {
@@ -307,8 +401,20 @@ function fillProductForm(product) {
 }
 
 function renderCustomers(customers) {
-  let html = '<section class="table-panel"><div class="table-head"><h2>Contas de clientes</h2><span class="badge">' + customers.length + ' exibidos</span></div>';
-  if (!customers.length) html += '<div class="empty-state">Nenhuma conta encontrada.</div>';
+  customerCache = Array.isArray(customers) ? customers : [];
+  renderCustomersView();
+}
+
+function renderCustomersView() {
+  const filters = adminFilters.customers;
+  const term = normalizeSearch(filters.search);
+  let customers = customerCache.filter((customer) => normalizeSearch([customer.nome, customer.email, customer.telefone].join(" ")).includes(term));
+  customers.sort(filters.sort === "name" ? (a,b) => String(a.nome||"").localeCompare(String(b.nome||""),"pt-BR") : (a,b) => compareDate(a,b,"created_at",-1));
+  let html = '<section class="table-panel"><div class="table-head"><h2>Contas de clientes</h2><span class="badge">' + customerCache.length + ' no total</span></div>';
+  html += filterToolbar("customers", customers.length, [
+    { key: "sort", label: "Ordenar clientes", options: [["newest","Cadastros recentes"],["name","Nome A–Z"]] }
+  ]);
+  if (!customers.length) html += '<div class="empty-state">' + (customerCache.length ? "Nenhum cliente corresponde à busca." : "Nenhuma conta encontrada.") + '</div>';
   else {
     html += '<div class="table-scroll"><table><thead><tr><th>Cliente</th><th>E-mail</th><th>Telefone</th><th>Cadastro</th></tr></thead><tbody>';
     customers.forEach((customer) => {
@@ -321,9 +427,25 @@ function renderCustomers(customers) {
 }
 
 function renderMessages(messages) {
-  const unread = messages.filter((message) => !message.lido).length;
-  let html = '<section class="table-panel"><div class="table-head"><h2>Caixa de entrada</h2><span class="badge">' + unread + ' não lidas • ' + messages.length + ' exibidas</span></div>';
-  if (!messages.length) html += '<div class="empty-state">Nenhuma mensagem de contato recebida.</div>';
+  messageCache = Array.isArray(messages) ? messages : [];
+  renderMessagesView();
+}
+
+function renderMessagesView() {
+  const filters = adminFilters.messages;
+  const term = normalizeSearch(filters.search);
+  let messages = messageCache.filter((message) => {
+    const haystack = normalizeSearch([message.nome, message.email, message.telefone, message.mensagem].join(" "));
+    return (!term || haystack.includes(term)) && (!filters.status || (filters.status === "unread" ? !message.lido : !!message.lido));
+  });
+  messages.sort((a,b) => compareDate(a,b,"criado_em",filters.sort === "oldest" ? 1 : -1));
+  const unread = messageCache.filter((message) => !message.lido).length;
+  let html = '<section class="table-panel"><div class="table-head"><h2>Caixa de entrada</h2><span class="badge">' + unread + ' não lidas • ' + messageCache.length + ' no total</span></div>';
+  html += filterToolbar("messages", messages.length, [
+    { key: "status", label: "Filtrar mensagens", options: [["","Todas as mensagens"],["unread","Não lidas"],["read","Lidas"]] },
+    { key: "sort", label: "Ordenar mensagens", options: [["newest","Mais recentes"],["oldest","Mais antigas"]] }
+  ]);
+  if (!messages.length) html += '<div class="empty-state">' + (messageCache.length ? "Nenhuma mensagem corresponde aos filtros." : "Nenhuma mensagem de contato recebida.") + '</div>';
   else {
     html += '<div class="table-scroll"><table><thead><tr><th>Remetente</th><th>Contato</th><th>Recebida em</th><th>Mensagem</th><th>Status</th></tr></thead><tbody>';
     messages.forEach((message) => {
