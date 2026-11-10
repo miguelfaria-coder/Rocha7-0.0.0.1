@@ -229,9 +229,12 @@ function handleFilterInput(event) {
   adminFilters[view][key] = target.value;
   const selection = target.tagName === "INPUT" ? target.selectionStart : null;
   const selector = '[data-filter-view="' + view + '"][data-filter="' + key + '"]';
+  const productFormState = view === "products" ? captureProductFormState() : null;
   if (view === "orders") renderOrdersView();
-  else if (view === "products") renderProducts();
-  else if (view === "customers") renderCustomersView();
+  else if (view === "products") {
+    renderProducts();
+    restoreProductFormState(productFormState);
+  } else if (view === "customers") renderCustomersView();
   else if (view === "messages") renderMessagesView();
   const replacement = $(selector);
   if (replacement) {
@@ -240,8 +243,30 @@ function handleFilterInput(event) {
   }
 }
 
+function captureProductFormState() {
+  const form = $("#product-form");
+  if (!form) return null;
+  const values = Object.fromEntries(new FormData(form).entries());
+  values.destaque = $("#product-featured").checked;
+  return values;
+}
+
+function restoreProductFormState(values) {
+  if (!values) return;
+  const form = $("#product-form");
+  if (!form) return;
+  Object.entries(values).forEach(([name, value]) => {
+    const field = form.elements.namedItem(name);
+    if (field && field.type !== "checkbox") field.value = value;
+  });
+  $("#product-featured").checked = !!values.destaque;
+  if (values.productId) {
+    $("#product-form-title").textContent = "Editar produto";
+  }
+}
+
 function normalizeSearch(value) {
-  return String(value || "").normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim();
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
 
 function compareDate(a, b, field, direction) {
