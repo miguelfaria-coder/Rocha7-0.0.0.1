@@ -12,3 +12,9 @@ _telas_temp/
 *.log
 .DS_Store
 Thumbs.db
+
+# Cloudflare Pages output and environment secrets
+dist/
+.env
+.env.*
+!.env.example
