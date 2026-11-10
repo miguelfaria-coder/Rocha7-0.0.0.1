@@ -17,3 +17,6 @@
 
 /perfil.html
   Cache-Control: no-store
+
+/pagamento-retorno.html
+  Cache-Control: no-store
