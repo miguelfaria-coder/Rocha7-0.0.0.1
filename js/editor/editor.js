@@ -182,6 +182,38 @@ function initEditor3DReal() {
 
   const CANVAS_RESOLUTION = 1024;
 
+  // ---- Estado da edição de elementos (declarado antes de initThreeJS para evitar TDZ) ----
+  const printSurfaces = [];                 // superfícies 3D que recebem a estampa: { mesh, piece }
+  const measureCtx = document.createElement("canvas").getContext("2d");
+  const historyState = { stack: [], idx: -1 };
+  const raycaster = new THREE.Raycaster();
+  const ndcVec = new THREE.Vector2();
+  const HANDLE_R = 22;                      // raio visual das alças (px do canvas 1024)
+  const HANDLE_HIT = 36;                    // raio de clique das alças
+  let dragState = null;
+
+  const layersList = document.getElementById("layers-list");
+  const layersPieceLabel = document.getElementById("layers-piece-label");
+  const btnUndo = document.getElementById("btn-undo");
+  const btnRedo = document.getElementById("btn-redo");
+  const textProps = document.getElementById("text-props");
+  const propTextContent = document.getElementById("prop-text-content");
+  const propFont = document.getElementById("prop-font");
+  const propColor = document.getElementById("prop-color");
+  const propFontSize = document.getElementById("prop-font-size");
+  const propValFontSize = document.getElementById("prop-val-font-size");
+  const propBold = document.getElementById("prop-bold");
+  const propItalic = document.getElementById("prop-italic");
+  const propStrokeColor = document.getElementById("prop-stroke-color");
+  const propStrokeWidth = document.getElementById("prop-stroke-width");
+  const propValStrokeWidth = document.getElementById("prop-val-stroke-width");
+  const propOpacity = document.getElementById("prop-opacity");
+  const propValOpacity = document.getElementById("prop-val-opacity");
+  const btnFlip = document.getElementById("btn-elem-flip");
+  const btnDuplicar = document.getElementById("btn-elem-duplicar");
+  const btnFrente = document.getElementById("btn-elem-frente");
+  const btnTras = document.getElementById("btn-elem-tras");
+
   // ---- Initialize 3D Engine ----
   initThreeJS();
 
@@ -249,7 +281,7 @@ function initEditor3DReal() {
 
     // 7. Setup Piece Tabs & 2D Interactive Dragging
     setupPieceTabs();
-    setupFlatPatternDragging();
+    setupElementEditingTools();
 
     // 8. Load default model
     loadModel(currentModelId);
@@ -301,18 +333,13 @@ function initEditor3DReal() {
   // ---- Setup 2D Pattern Piece Tabs (Pacdora Style) ----
   function setupPieceTabs() {
     if (!pieceTabsContainer) return;
-
     pieceTabsContainer.querySelectorAll(".piece-tab").forEach(tab => {
-      tab.addEventListener("click", () => {
-        pieceTabsContainer.querySelectorAll(".piece-tab").forEach(t => t.classList.remove("piece-tab--active"));
-        tab.classList.add("piece-tab--active");
-        const targetPiece = tab.getAttribute("data-piece");
-        setActivePiece(targetPiece);
-      });
+      tab.addEventListener("click", () => setActivePiece(tab.getAttribute("data-piece")));
     });
   }
 
-  function setActivePiece(pieceId) {
+  function setActivePiece(pieceId, opts) {
+    const moveCamera = !(opts && opts.moveCamera === false);
     activePiece = pieceId;
 
     if (activePieceLabel) activePieceLabel.textContent = PATTERN_LABELS[pieceId] || pieceId.toUpperCase();
@@ -320,8 +347,13 @@ function initEditor3DReal() {
     if (svgOutlinePath) svgOutlinePath.setAttribute("d", PATTERN_PATHS[pieceId] || PATTERN_PATHS.front);
     if (svgPatternTitle) svgPatternTitle.textContent = PATTERN_TITLES[pieceId] || pieceId.toUpperCase();
 
+    if (pieceTabsContainer) {
+      pieceTabsContainer.querySelectorAll(".piece-tab").forEach(t =>
+        t.classList.toggle("piece-tab--active", t.getAttribute("data-piece") === pieceId));
+    }
+
     // Rotate 3D camera to face selected piece automatically
-    if (camera && controls) {
+    if (moveCamera && camera && controls) {
       if (pieceId === "front") camera.position.set(0, 0, 4.5);
       else if (pieceId === "back") camera.position.set(0, 0, -4.5);
       else if (pieceId === "left_sleeve") camera.position.set(4.5, 0, 0);
@@ -331,7 +363,13 @@ function initEditor3DReal() {
       controls.update();
     }
 
-    renderFlatPatternCanvas();
+    // A seleção só vale dentro da peça ativa
+    if (elementoSelecionado && !(elementosMap[pieceId] || []).includes(elementoSelecionado)) {
+      selecionarElemento(null);
+    } else {
+      renderLayersList();
+      renderFlatPatternCanvas();
+    }
   }
 
   // ---- Render Active Piece on 2D Pattern Canvas ----
@@ -343,69 +381,308 @@ function initEditor3DReal() {
     flatCanvasCtx.clearRect(0, 0, w, h);
 
     const items = elementosMap[activePiece] || [];
-    items.forEach(item => {
-      flatCanvasCtx.save();
-      const x = item.x * w;
-      const y = item.y * h;
+    items.forEach(item => drawItem(flatCanvasCtx, item, w, h, false));
+    drawSelectionOverlay(flatCanvasCtx, items);
+  }
 
-      flatCanvasCtx.translate(x, y);
-      flatCanvasCtx.rotate(((item.rotation || 0) * Math.PI) / 180);
-      flatCanvasCtx.scale(item.scale || 1, item.scale || 1);
+  /* =========================================================
+     EDIÇÃO DE ELEMENTOS — desenho, geometria e hit-test
+     ========================================================= */
+  function itemFont(item) {
+    const weight = item.bold === false ? 400 : 800;
+    return `${item.italic ? "italic " : ""}${weight} ${item.fontSize || 42}px ${item.fontFamily || "Outfit, sans-serif"}`;
+  }
 
-      if (item.type === "text") {
-        flatCanvasCtx.font = `800 ${item.fontSize || 42}px ${item.fontFamily || 'Outfit'}`;
-        flatCanvasCtx.fillStyle = item.color || '#f35e0e';
-        flatCanvasCtx.textAlign = 'center';
-        flatCanvasCtx.textBaseline = 'middle';
-        flatCanvasCtx.fillText(item.text, 0, 0);
-      } else if (item.type === "image" && item.imgElement) {
-        const imgW = item.width || 220;
-        const imgH = item.height || 220;
-        flatCanvasCtx.drawImage(item.imgElement, -imgW / 2, -imgH / 2, imgW, imgH);
+  /** Desenha um elemento (texto/imagem) num contexto 2D. Usado no molde plano e na textura 3D. */
+  function drawItem(ctx, item, w, h, withShadow) {
+    if (item.hidden) return;
+    ctx.save();
+    ctx.translate(item.x * w, item.y * h);
+    ctx.rotate(((item.rotation || 0) * Math.PI) / 180);
+    const s = item.scale || 1;
+    ctx.scale(item.flipX ? -s : s, s);
+    ctx.globalAlpha = item.opacity == null ? 1 : item.opacity;
+
+    if (item.type === "text") {
+      ctx.font = itemFont(item);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const stroke = (item.strokeWidth || 0) > 0;
+      if (withShadow && !stroke) {
+        ctx.shadowColor = "rgba(0, 0, 0, 0.2)";
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 2;
       }
+      if (stroke) {
+        ctx.lineJoin = "round";
+        ctx.lineWidth = item.strokeWidth * 2;
+        ctx.strokeStyle = item.strokeColor || "#000000";
+        ctx.strokeText(item.text || "", 0, 0);
+      }
+      ctx.fillStyle = item.color || "#f35e0e";
+      ctx.fillText(item.text || "", 0, 0);
+    } else if (item.type === "image" && item.imgElement) {
+      const iw = item.width || 200;
+      const ih = item.height || 200;
+      ctx.drawImage(item.imgElement, -iw / 2, -ih / 2, iw, ih);
+    }
+    ctx.restore();
+  }
 
-      flatCanvasCtx.restore();
+  /** Tamanho do elemento em px do canvas (sem escala/rotação). */
+  function getItemSize(item) {
+    if (item.type === "text") {
+      measureCtx.font = itemFont(item);
+      const sw = (item.strokeWidth || 0) * 2;
+      return {
+        w: Math.max(40, measureCtx.measureText(item.text || "").width + sw),
+        h: (item.fontSize || 42) * 1.25 + sw
+      };
+    }
+    return { w: item.width || 200, h: item.height || 200 };
+  }
+
+  function pointToLocal(item, px, py) {
+    const dx = px - item.x * CANVAS_RESOLUTION;
+    const dy = py - item.y * CANVAS_RESOLUTION;
+    const a = -((item.rotation || 0) * Math.PI) / 180;
+    const s = item.scale || 1;
+    return {
+      x: (dx * Math.cos(a) - dy * Math.sin(a)) / s,
+      y: (dx * Math.sin(a) + dy * Math.cos(a)) / s
+    };
+  }
+
+  function localToCanvas(item, lx, ly) {
+    const s = item.scale || 1;
+    const a = ((item.rotation || 0) * Math.PI) / 180;
+    const x = lx * s;
+    const y = ly * s;
+    return {
+      x: item.x * CANVAS_RESOLUTION + x * Math.cos(a) - y * Math.sin(a),
+      y: item.y * CANVAS_RESOLUTION + x * Math.sin(a) + y * Math.cos(a)
+    };
+  }
+
+  function getHandles(item) {
+    const { w, h } = getItemSize(item);
+    const s = item.scale || 1;
+    return {
+      scale: localToCanvas(item, w / 2, h / 2),
+      rotate: localToCanvas(item, 0, -h / 2 - 56 / s)
+    };
+  }
+
+  function hitTestItem(item, px, py) {
+    if (item.hidden) return false;
+    const l = pointToLocal(item, px, py);
+    const { w, h } = getItemSize(item);
+    const pad = 8 / (item.scale || 1);
+    return Math.abs(l.x) <= w / 2 + pad && Math.abs(l.y) <= h / 2 + pad;
+  }
+
+  /** Elemento mais acima (último desenhado) sob o ponto, ou null. */
+  function pickItemAt(piece, px, py) {
+    const items = elementosMap[piece] || [];
+    for (let i = items.length - 1; i >= 0; i--) {
+      if (hitTestItem(items[i], px, py)) return items[i];
+    }
+    return null;
+  }
+
+  /** Caixa de seleção + alças (girar/escalar) — só no molde 2D, nunca na textura 3D. */
+  function drawSelectionOverlay(ctx, items) {
+    const item = elementoSelecionado;
+    if (!item || item.hidden || !items.includes(item)) return;
+    const { w, h } = getItemSize(item);
+    const s = item.scale || 1;
+
+    ctx.save();
+    ctx.translate(item.x * CANVAS_RESOLUTION, item.y * CANVAS_RESOLUTION);
+    ctx.rotate(((item.rotation || 0) * Math.PI) / 180);
+    ctx.scale(s, s);
+    ctx.strokeStyle = "#f35e0e";
+    ctx.lineWidth = 3 / s;
+    ctx.setLineDash([10 / s, 6 / s]);
+    ctx.strokeRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+
+    const hnd = getHandles(item);
+    const top = localToCanvas(item, 0, -h / 2);
+    ctx.save();
+    ctx.strokeStyle = "#f35e0e";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(hnd.rotate.x, hnd.rotate.y);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(hnd.rotate.x, hnd.rotate.y, HANDLE_R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillRect(hnd.scale.x - HANDLE_R, hnd.scale.y - HANDLE_R, HANDLE_R * 2, HANDLE_R * 2);
+    ctx.strokeRect(hnd.scale.x - HANDLE_R, hnd.scale.y - HANDLE_R, HANDLE_R * 2, HANDLE_R * 2);
+    ctx.restore();
+  }
+
+  /* ---------- Arraste / girar / escalar (molde 2D) ---------- */
+  function flatPointerToCanvas(e) {
+    const r = flatCanvasEl.getBoundingClientRect();
+    return {
+      x: ((e.clientX - r.left) / r.width) * CANVAS_RESOLUTION,
+      y: ((e.clientY - r.top) / r.height) * CANVAS_RESOLUTION
+    };
+  }
+
+  function setupFlatPatternDragging() {
+    if (!flatCanvasEl) return;
+    flatCanvasEl.style.touchAction = "none";
+
+    flatCanvasEl.addEventListener("pointerdown", (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+      const p = flatPointerToCanvas(e);
+      const items = elementosMap[activePiece] || [];
+      let item = null;
+      let mode = "move";
+
+      if (elementoSelecionado && items.includes(elementoSelecionado)) {
+        const hnd = getHandles(elementoSelecionado);
+        if (Math.hypot(p.x - hnd.rotate.x, p.y - hnd.rotate.y) <= HANDLE_HIT) {
+          item = elementoSelecionado; mode = "rotate";
+        } else if (Math.hypot(p.x - hnd.scale.x, p.y - hnd.scale.y) <= HANDLE_HIT) {
+          item = elementoSelecionado; mode = "scale";
+        }
+      }
+      if (!item) item = pickItemAt(activePiece, p.x, p.y);
+      if (!item) { selecionarElemento(null); return; }
+
+      if (item !== elementoSelecionado) selecionarElemento(item);
+      const cx = item.x * CANVAS_RESOLUTION;
+      const cy = item.y * CANVAS_RESOLUTION;
+      dragState = {
+        source: "flat", mode, item,
+        grabDX: p.x - cx, grabDY: p.y - cy,
+        startScale: item.scale || 1,
+        startDist: Math.hypot(p.x - cx, p.y - cy) || 1
+      };
+      if (flatCanvasEl.setPointerCapture) { try { flatCanvasEl.setPointerCapture(e.pointerId); } catch (_) { } }
+      e.preventDefault();
     });
   }
 
-  // ---- 2D Interactive Dragging on Flat Pattern Stage ----
-  function setupFlatPatternDragging() {
-    if (!flatCanvasEl) return;
-    let isDragging = false;
-    let dragStartX = 0, dragStartY = 0;
-    let itemStartX = 0, itemStartY = 0;
+  /** Aplica o movimento do ponteiro ao elemento em arraste. p está em px do canvas (0..1024). */
+  function applyDrag(p, shiftKey) {
+    const item = dragState.item;
+    const cx = item.x * CANVAS_RESOLUTION;
+    const cy = item.y * CANVAS_RESOLUTION;
 
-    flatCanvasEl.addEventListener("mousedown", (e) => {
-      const items = elementosMap[activePiece] || [];
-      if (items.length === 0) return;
+    if (dragState.mode === "move") {
+      item.x = Math.max(0.05, Math.min(0.95, (p.x - dragState.grabDX) / CANVAS_RESOLUTION));
+      item.y = Math.max(0.05, Math.min(0.95, (p.y - dragState.grabDY) / CANVAS_RESOLUTION));
+    } else if (dragState.mode === "rotate") {
+      let ang = (Math.atan2(p.y - cy, p.x - cx) * 180) / Math.PI + 90;
+      ang = ((ang % 360) + 360) % 360;
+      if (shiftKey) ang = Math.round(ang / 15) * 15 % 360;
+      item.rotation = Math.round(ang);
+    } else if (dragState.mode === "scale") {
+      const d = Math.hypot(p.x - cx, p.y - cy);
+      item.scale = Math.max(0.1, Math.min(4, dragState.startScale * (d / dragState.startDist)));
+    }
+    syncSlidersToElement(item);
+    update2DTexture(activePiece);
+  }
 
-      const item = items[items.length - 1]; // active item
-      selecionarElemento(item, null);
+  function finishDrag() {
+    if (!dragState) return;
+    dragState = null;
+    if (controls) controls.enabled = true;
+    if (flatCanvasEl) flatCanvasEl.style.cursor = "";
+    commitHistory();
+  }
 
-      isDragging = true;
-      dragStartX = e.clientX;
-      dragStartY = e.clientY;
-      itemStartX = item.x;
-      itemStartY = item.y;
+  function onWindowPointerMove(e) {
+    if (dragState) {
+      if (dragState.source === "flat") {
+        applyDrag(flatPointerToCanvas(e), e.shiftKey);
+      } else if (dragState.source === "3d") {
+        const hit = raycastSurfaces(e, dragState.surface);
+        if (hit) {
+          dragState.item.x = Math.max(0.05, Math.min(0.95, (hit.x - dragState.grabDX) / CANVAS_RESOLUTION));
+          dragState.item.y = Math.max(0.05, Math.min(0.95, (hit.y - dragState.grabDY) / CANVAS_RESOLUTION));
+          syncSlidersToElement(dragState.item);
+          update2DTexture(activePiece);
+        }
+      }
+      return;
+    }
+
+    // Cursor de feedback ao passar sobre elementos
+    if (flatCanvasEl && e.target === flatCanvasEl) {
+      const p = flatPointerToCanvas(e);
+      let cursor = "";
+      if (elementoSelecionado && (elementosMap[activePiece] || []).includes(elementoSelecionado)) {
+        const hnd = getHandles(elementoSelecionado);
+        if (Math.hypot(p.x - hnd.rotate.x, p.y - hnd.rotate.y) <= HANDLE_HIT) cursor = "alias";
+        else if (Math.hypot(p.x - hnd.scale.x, p.y - hnd.scale.y) <= HANDLE_HIT) cursor = "nwse-resize";
+      }
+      if (!cursor && pickItemAt(activePiece, p.x, p.y)) cursor = "move";
+      flatCanvasEl.style.cursor = cursor;
+    } else if (renderer && e.target === renderer.domElement) {
+      const hit = raycastSurfaces(e);
+      renderer.domElement.style.cursor = hit && pickItemAt(hit.surface.piece, hit.x, hit.y) ? "move" : "";
+    }
+  }
+
+  /* ---------- Seleção / arraste direto no modelo 3D ---------- */
+  function raycastSurfaces(e, onlySurface) {
+    if (!renderer || !camera) return null;
+    const r = renderer.domElement.getBoundingClientRect();
+    ndcVec.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    raycaster.setFromCamera(ndcVec, camera);
+    const targets = onlySurface ? [onlySurface.mesh] : printSurfaces.map(s => s.mesh);
+    const hits = raycaster.intersectObjects(targets, false);
+    if (!hits.length || !hits[0].uv) return null;
+    const surface = onlySurface || printSurfaces.find(s => s.mesh === hits[0].object);
+    if (!surface) return null;
+    return { surface, x: hits[0].uv.x * CANVAS_RESOLUTION, y: (1 - hits[0].uv.y) * CANVAS_RESOLUTION };
+  }
+
+  function setup3DPicking() {
+    if (!renderer) return;
+    const dom = renderer.domElement;
+    let emptyClick = null;
+
+    dom.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      const hit = raycastSurfaces(e);
+      const item = hit ? pickItemAt(hit.surface.piece, hit.x, hit.y) : null;
+      if (!item) { emptyClick = { x: e.clientX, y: e.clientY }; return; } // deixa o OrbitControls girar
+
+      emptyClick = null;
+      if (hit.surface.piece !== activePiece) setActivePiece(hit.surface.piece, { moveCamera: false });
+      selecionarElemento(item);
+      if (controls) controls.enabled = false;
+      dragState = {
+        source: "3d", mode: "move", item, surface: hit.surface,
+        grabDX: hit.x - item.x * CANVAS_RESOLUTION,
+        grabDY: hit.y - item.y * CANVAS_RESOLUTION
+      };
+      if (dom.setPointerCapture) { try { dom.setPointerCapture(e.pointerId); } catch (_) { } }
+      e.stopImmediatePropagation();
+    }, true);
+
+    // Clique simples (sem arrastar) em área vazia do 3D → desseleciona
+    dom.addEventListener("pointerup", (e) => {
+      if (emptyClick && Math.hypot(e.clientX - emptyClick.x, e.clientY - emptyClick.y) < 4) selecionarElemento(null);
+      emptyClick = null;
     });
 
-    window.addEventListener("mousemove", (e) => {
-      if (!isDragging || !elementoSelecionado) return;
-      const rect = flatCanvasEl.getBoundingClientRect();
-      const dx = (e.clientX - dragStartX) / rect.width;
-      const dy = (e.clientY - dragStartY) / rect.height;
-
-      elementoSelecionado.x = Math.max(0.05, Math.min(0.95, itemStartX + dx));
-      elementoSelecionado.y = Math.max(0.05, Math.min(0.95, itemStartY + dy));
-
-      renderFlatPatternCanvas();
-      update2DTexture(activePiece);
-      syncSlidersToElement(elementoSelecionado);
-    });
-
-    window.addEventListener("mouseup", () => {
-      isDragging = false;
-    });
+    window.addEventListener("pointermove", onWindowPointerMove);
+    window.addEventListener("pointerup", finishDrag);
+    window.addEventListener("pointercancel", finishDrag);
   }
   textureBack.anisotropy = 16;
 
@@ -454,6 +731,7 @@ function loadModel(modelId) {
 
   // Remove existing model from scene
   removeCurrentModel();
+  printSurfaces.length = 0;
 
   // A caneca é gerada diretamente no Three.js, sem depender de arquivo GLB.
   if (modelConfig.isMug) {
@@ -479,6 +757,7 @@ function loadModel(modelId) {
     );
     body.position.y = 0.05;
     mug.add(body);
+    printSurfaces.push({ mesh: body, piece: 'front' });
 
     // Borda superior e fundo cerâmico.
     const rim = new THREE.Mesh(
@@ -807,6 +1086,7 @@ function setupDecalMeshes(size, scale) {
   const decalFrontZ = currentModelId === 'moletom' ? 0.35 : 0.38;
   decalFrontMesh.position.set(0, decalCenterY, decalFrontZ);
   if (tshirtGroup) tshirtGroup.add(decalFrontMesh);
+  printSurfaces.push({ mesh: decalFrontMesh, piece: 'front' });
 
   // Decalque das Costas
   const backMat = new THREE.MeshBasicMaterial({
@@ -821,6 +1101,7 @@ function setupDecalMeshes(size, scale) {
   decalBackMesh.position.set(0, decalCenterY, -decalFrontZ);
   decalBackMesh.rotation.y = Math.PI;
   if (tshirtGroup) tshirtGroup.add(decalBackMesh);
+  printSurfaces.push({ mesh: decalBackMesh, piece: 'back' });
 
   // Decalque Manga Esquerda
   const sleeveGeo = new THREE.PlaneGeometry(0.4, 0.4);
@@ -834,6 +1115,7 @@ function setupDecalMeshes(size, scale) {
   decalLeftSleeveMesh.position.set(0.65, 0.1, 0.05);
   decalLeftSleeveMesh.rotation.y = Math.PI / 2;
   if (tshirtGroup) tshirtGroup.add(decalLeftSleeveMesh);
+  printSurfaces.push({ mesh: decalLeftSleeveMesh, piece: 'left_sleeve' });
 
   // Decalque Manga Direita
   const rightSleeveMat = new THREE.MeshBasicMaterial({
@@ -846,6 +1128,7 @@ function setupDecalMeshes(size, scale) {
   decalRightSleeveMesh.position.set(-0.65, 0.1, 0.05);
   decalRightSleeveMesh.rotation.y = -Math.PI / 2;
   if (tshirtGroup) tshirtGroup.add(decalRightSleeveMesh);
+  printSurfaces.push({ mesh: decalRightSleeveMesh, piece: 'right_sleeve' });
 }
 
 // ---- Update 2D Texture for 3D Decals ----
@@ -869,35 +1152,7 @@ function update2DTexture(piece) {
     ctx.fillRect(0, 0, CANVAS_RESOLUTION, CANVAS_RESOLUTION);
   }
 
-  elementos.forEach(item => {
-    ctx.save();
-
-    const x = item.x * CANVAS_RESOLUTION;
-    const y = item.y * CANVAS_RESOLUTION;
-
-    ctx.translate(x, y);
-    ctx.rotate((item.rotation || 0) * Math.PI / 180);
-    ctx.scale(item.scale || 1, item.scale || 1);
-
-    if (item.type === "text") {
-      ctx.font = `800 ${item.fontSize || 42}px ${item.fontFamily || 'Outfit'}`;
-      ctx.fillStyle = item.color || '#f35e0e';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetY = 2;
-
-      ctx.fillText(item.text, 0, 0);
-    } else if (item.type === "image" && item.imgElement) {
-      const w = item.width || 200;
-      const h = item.height || 200;
-      ctx.drawImage(item.imgElement, -w / 2, -h / 2, w, h);
-    }
-
-    ctx.restore();
-  });
+  elementos.forEach(item => drawItem(ctx, item, CANVAS_RESOLUTION, CANVAS_RESOLUTION, true));
 
   if (texture) texture.needsUpdate = true;
   renderFlatPatternCanvas();
@@ -978,7 +1233,6 @@ function updateViewUI() {
     printAreaTag.textContent = currentView === "front" ? "FRENTE" : "COSTAS";
   }
 
-  render2DOverlayElements();
 }
 
 if (btnViewFrente) btnViewFrente.addEventListener("click", () => setCameraView("front"));
@@ -1006,117 +1260,217 @@ if (btnZoomOut) {
   });
 }
 
-// ---- 2D Overlay Sync (Interatividade em Tela) ----
-function render2DOverlayElements() {
-  if (!printArea2D) return;
-  printArea2D.innerHTML = `<span class="print-area-tag" id="print-area-tag">${currentView === "front" ? "FRENTE" : "COSTAS"}</span>`;
-
-  const elementos = currentView === "front" ? elementosFrente : elementosCostas;
-
-  elementos.forEach(item => {
-    const elem = document.createElement("div");
-    elem.className = "editor-print-element";
-
-    const rect = printArea2D.getBoundingClientRect();
-    const leftPx = (item.x * rect.width) - 20;
-    const topPx = (item.y * rect.height) - 20;
-
-    elem.style.left = `${leftPx}px`;
-    elem.style.top = `${topPx}px`;
-    elem.style.transform = `scale(${item.scale || 1}) rotate(${item.rotation || 0}deg)`;
-
-    if (item.type === "text") {
-      elem.style.fontSize = "16px";
-      elem.style.fontFamily = item.fontFamily || 'Outfit';
-      elem.style.color = item.color || '#f35e0e';
-      elem.style.fontWeight = "800";
-      elem.innerHTML = `<span>${item.text}</span>`;
-    } else if (item.type === "image") {
-      elem.innerHTML = `<img src="${item.src}" style="max-width: 70px; height: auto; pointer-events: none;">`;
-    }
-
-    if (elementoSelecionado === item) {
-      elem.classList.add("selected");
-    }
-
-    makeElementInteractive(elem, item);
-    printArea2D.appendChild(elem);
-  });
+/* =========================================================
+   EDIÇÃO DE ELEMENTOS — seleção, camadas, propriedades, histórico
+   ========================================================= */
+function selecionarElemento(itemObj) {
+  elementoSelecionado = itemObj || null;
+  if (controlesElemento) controlesElemento.style.display = elementoSelecionado ? "block" : "none";
+  if (elementoSelecionado) {
+    syncSlidersToElement(elementoSelecionado);
+    syncPropsToElement(elementoSelecionado);
+  }
+  renderLayersList();
+  renderFlatPatternCanvas();
 }
 
-function makeElementInteractive(domElem, itemObj) {
-  let isDragging = false;
-  let startX, startY, initialX, initialY;
-
-  domElem.addEventListener("mousedown", (e) => {
-    e.stopPropagation();
-    selecionarElemento(itemObj, domElem);
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    initialX = itemObj.x;
-    initialY = itemObj.y;
-  });
-
-  document.addEventListener("mousemove", (e) => {
-    if (!isDragging || elementoSelecionado !== itemObj) return;
-    const rect = printArea2D.getBoundingClientRect();
-    const dx = (e.clientX - startX) / rect.width;
-    const dy = (e.clientY - startY) / rect.height;
-
-    itemObj.x = Math.max(0.1, Math.min(0.9, initialX + dx));
-    itemObj.y = Math.max(0.1, Math.min(0.9, initialY + dy));
-
-    domElem.style.left = `${(itemObj.x * rect.width) - 20}px`;
-    domElem.style.top = `${(itemObj.y * rect.height) - 20}px`;
-
-    update2DTexture(currentView);
-    syncSlidersToElement(itemObj);
-  });
-
-  document.addEventListener("mouseup", () => {
-    isDragging = false;
-  });
+/** Redesenha tudo após mudança estrutural (adicionar/remover/reordenar/ocultar). */
+function refreshAfterStructureChange() {
+  update2DTexture(activePiece);
+  renderLayersList();
+  if (elementoSelecionado) syncPropsToElement(elementoSelecionado);
 }
 
-function selecionarElemento(itemObj, domElem) {
-  if (!printArea2D) return;
-  printArea2D.querySelectorAll(".editor-print-element").forEach(e => e.classList.remove("selected"));
+function addItem(novoItem) {
+  if (!elementosMap[activePiece]) elementosMap[activePiece] = [];
+  elementosMap[activePiece].push(novoItem);
+  selecionarElemento(novoItem);
+  refreshAfterStructureChange();
+  commitHistory();
+}
 
-  elementoSelecionado = itemObj;
+function removeItem(item) {
+  if (!item) return;
+  const arr = elementosMap[activePiece] || [];
+  const idx = arr.indexOf(item);
+  if (idx === -1) return;
+  arr.splice(idx, 1);
+  if (elementoSelecionado === item) selecionarElemento(null);
+  refreshAfterStructureChange();
+  commitHistory();
+}
 
-  if (domElem) domElem.classList.add("selected");
-  if (controlesElemento) controlesElemento.style.display = itemObj ? "block" : "none";
+function duplicateItem(item) {
+  if (!item) return;
+  const arr = elementosMap[activePiece] || [];
+  if (!arr.includes(item)) return;
+  const copia = Object.assign({}, item, {
+    id: "dup-" + Date.now() + "-" + Math.floor(Math.random() * 1000),
+    x: Math.min(0.95, item.x + 0.04),
+    y: Math.min(0.95, item.y + 0.04)
+  });
+  arr.splice(arr.indexOf(item) + 1, 0, copia);
+  selecionarElemento(copia);
+  refreshAfterStructureChange();
+  commitHistory();
+}
 
-  // Sync sliders to selected element
-  if (itemObj) {
-    syncSlidersToElement(itemObj);
+function moveLayer(item, dir) {
+  const arr = elementosMap[activePiece] || [];
+  const i = arr.indexOf(item);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  refreshAfterStructureChange();
+  commitHistory();
+}
+
+function toggleHidden(item) {
+  item.hidden = !item.hidden;
+  refreshAfterStructureChange();
+  commitHistory();
+}
+
+function layerLabel(item) {
+  if (item.type === "text") return `“${item.text || "(vazio)"}”`;
+  return item.name || "Imagem";
+}
+
+function renderLayersList() {
+  if (layersPieceLabel) layersPieceLabel.textContent = PATTERN_LABELS[activePiece] || activePiece.toUpperCase();
+  if (!layersList) return;
+  layersList.innerHTML = "";
+  const items = elementosMap[activePiece] || [];
+
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.className = "layers-list__empty";
+    li.textContent = "Nenhum elemento nesta peça";
+    layersList.appendChild(li);
+    return;
+  }
+
+  // topo da lista = camada mais acima
+  for (let i = items.length - 1; i >= 0; i--) {
+    const item = items[i];
+    const li = document.createElement("li");
+    li.className = "layer-row" + (item === elementoSelecionado ? " is-selected" : "") + (item.hidden ? " is-hidden" : "");
+    li.addEventListener("click", () => selecionarElemento(item));
+
+    const icon = document.createElement("span");
+    icon.className = "layer-row__icon";
+    icon.textContent = item.type === "text" ? "T" : "🖼";
+    li.appendChild(icon);
+
+    const name = document.createElement("span");
+    name.className = "layer-row__name";
+    name.textContent = layerLabel(item);
+    li.appendChild(name);
+
+    const mkBtn = (label, title, fn, disabled) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "layer-row__btn";
+      b.textContent = label;
+      b.title = title;
+      if (disabled) { b.disabled = true; b.style.opacity = ".3"; }
+      b.addEventListener("click", (ev) => { ev.stopPropagation(); fn(); });
+      li.appendChild(b);
+    };
+    mkBtn(item.hidden ? "🚫" : "👁", item.hidden ? "Mostrar" : "Ocultar", () => toggleHidden(item));
+    mkBtn("▲", "Camada acima", () => moveLayer(item, 1), i === items.length - 1);
+    mkBtn("▼", "Camada abaixo", () => moveLayer(item, -1), i === 0);
+    mkBtn("🗑", "Remover", () => removeItem(item));
+
+    layersList.appendChild(li);
   }
 }
 
-/* =========================================================
-   SLIDER CONTROLS — SYNC
-   ========================================================= */
+/* ---------- Painel de propriedades do elemento ---------- */
+function syncPropsToElement(item) {
+  if (!item) return;
+  const isText = item.type === "text";
+  if (textProps) textProps.style.display = isText ? "block" : "none";
+
+  if (isText) {
+    if (propTextContent && document.activeElement !== propTextContent) propTextContent.value = item.text || "";
+    if (propFont) {
+      const wanted = item.fontFamily || "Outfit, sans-serif";
+      if (![...propFont.options].some(o => o.value === wanted)) {
+        propFont.add(new Option(wanted.split(",")[0], wanted));
+      }
+      propFont.value = wanted;
+    }
+    if (propColor) propColor.value = item.color || "#f35e0e";
+    if (propFontSize) { propFontSize.value = item.fontSize || 48; updateRangeProgress(propFontSize); }
+    if (propValFontSize) propValFontSize.textContent = item.fontSize || 48;
+    if (propBold) propBold.setAttribute("aria-pressed", item.bold === false ? "false" : "true");
+    if (propItalic) propItalic.setAttribute("aria-pressed", item.italic ? "true" : "false");
+    if (propStrokeColor) propStrokeColor.value = item.strokeColor || "#000000";
+    if (propStrokeWidth) { propStrokeWidth.value = item.strokeWidth || 0; updateRangeProgress(propStrokeWidth); }
+    if (propValStrokeWidth) propValStrokeWidth.textContent = item.strokeWidth || 0;
+  }
+
+  const op = Math.round((item.opacity == null ? 1 : item.opacity) * 100);
+  if (propOpacity) { propOpacity.value = op; updateRangeProgress(propOpacity); }
+  if (propValOpacity) propValOpacity.textContent = `${op}%`;
+  if (btnFlip) btnFlip.setAttribute("aria-pressed", item.flipX ? "true" : "false");
+}
+
+/* ---------- Histórico (desfazer / refazer) ---------- */
+function snapshotState() {
+  const out = {};
+  Object.keys(elementosMap).forEach(k => { out[k] = elementosMap[k].map(it => Object.assign({}, it)); });
+  return out;
+}
+
+function snapshotSignature(snap) {
+  return JSON.stringify(snap, (key, val) => (key === "imgElement" || key === "src" ? undefined : val));
+}
+
+function commitHistory() {
+  const snap = snapshotState();
+  const sig = snapshotSignature(snap);
+  const last = historyState.stack[historyState.idx];
+  if (last && last.sig === sig) { updateUndoButtons(); return; }
+  historyState.stack.length = historyState.idx + 1;
+  historyState.stack.push({ snap, sig });
+  if (historyState.stack.length > 80) historyState.stack.shift();
+  historyState.idx = historyState.stack.length - 1;
+  updateUndoButtons();
+}
+
+function restoreHistory(index) {
+  const entry = historyState.stack[index];
+  if (!entry) return;
+  const selId = elementoSelecionado ? elementoSelecionado.id : null;
+  Object.keys(elementosMap).forEach(k => {
+    const arr = elementosMap[k];
+    arr.length = 0;
+    (entry.snap[k] || []).forEach(it => arr.push(Object.assign({}, it)));
+  });
+  historyState.idx = index;
+  Object.keys(elementosMap).forEach(k => update2DTexture(k));
+  const sel = (elementosMap[activePiece] || []).find(it => it.id === selId) || null;
+  selecionarElemento(sel);
+  updateUndoButtons();
+}
+
+function undo() { if (historyState.idx > 0) restoreHistory(historyState.idx - 1); }
+function redo() { if (historyState.idx < historyState.stack.length - 1) restoreHistory(historyState.idx + 1); }
+
+function updateUndoButtons() {
+  if (btnUndo) btnUndo.disabled = historyState.idx <= 0;
+  if (btnRedo) btnRedo.disabled = historyState.idx >= historyState.stack.length - 1;
+}
+
+/* ---------- Sliders: sincronização ---------- */
 function syncSlidersToElement(item) {
   if (!item) return;
-
-  if (sliderPosX) {
-    sliderPosX.value = Math.round(item.x * 100);
-    updateRangeProgress(sliderPosX);
-  }
-  if (sliderPosY) {
-    sliderPosY.value = Math.round(item.y * 100);
-    updateRangeProgress(sliderPosY);
-  }
-  if (sliderScale) {
-    sliderScale.value = Math.round((item.scale || 1) * 100);
-    updateRangeProgress(sliderScale);
-  }
-  if (sliderRotation) {
-    sliderRotation.value = item.rotation || 0;
-    updateRangeProgress(sliderRotation);
-  }
-
+  if (sliderPosX) { sliderPosX.value = Math.round(item.x * 100); updateRangeProgress(sliderPosX); }
+  if (sliderPosY) { sliderPosY.value = Math.round(item.y * 100); updateRangeProgress(sliderPosY); }
+  if (sliderScale) { sliderScale.value = Math.round((item.scale || 1) * 100); updateRangeProgress(sliderScale); }
+  if (sliderRotation) { sliderRotation.value = Math.round(item.rotation || 0); updateRangeProgress(sliderRotation); }
   updateSliderLabels();
 }
 
@@ -1136,213 +1490,235 @@ function updateRangeProgress(rangeInput) {
   rangeInput.style.setProperty('--range-progress', `${percent}%`);
 }
 
-// Initialize all range progress indicators
 function initAllRangeProgress() {
   document.querySelectorAll('.styled-range').forEach(updateRangeProgress);
 }
 
-// Slider event listeners
-if (sliderPosX) {
-  sliderPosX.addEventListener("input", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.x = parseInt(sliderPosX.value) / 100;
-    updateRangeProgress(sliderPosX);
-    updateSliderLabels();
-    update2DTexture(activePiece);
-  });
+/** Após uma alteração numérica no elemento selecionado. */
+function afterElementChange(commit) {
+  syncSlidersToElement(elementoSelecionado);
+  update2DTexture(activePiece);
+  if (commit) commitHistory();
 }
 
-if (sliderPosY) {
-  sliderPosY.addEventListener("input", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.y = parseInt(sliderPosY.value) / 100;
-    updateRangeProgress(sliderPosY);
-    updateSliderLabels();
-    update2DTexture(activePiece);
+/* ---------- Ligação de todos os controles de edição ---------- */
+function setupElementEditingTools() {
+  setupFlatPatternDragging();
+  setup3DPicking();
+
+  // Sliders de posição / escala / rotação
+  [
+    [sliderPosX, (it, v) => { it.x = v / 100; }],
+    [sliderPosY, (it, v) => { it.y = v / 100; }],
+    [sliderScale, (it, v) => { it.scale = v / 100; }],
+    [sliderRotation, (it, v) => { it.rotation = v; }]
+  ].forEach(([el, apply]) => {
+    if (!el) return;
+    el.addEventListener("input", () => {
+      if (!elementoSelecionado) return;
+      apply(elementoSelecionado, parseInt(el.value, 10));
+      updateRangeProgress(el);
+      updateSliderLabels();
+      update2DTexture(activePiece);
+    });
+    el.addEventListener("change", commitHistory);
   });
-}
 
-if (sliderScale) {
-  sliderScale.addEventListener("input", () => {
+  // Botões direcionais e de tamanho
+  const nudge = (dx, dy) => () => {
+    const it = elementoSelecionado;
+    if (!it) return;
+    it.x = Math.max(0.05, Math.min(0.95, it.x + dx));
+    it.y = Math.max(0.05, Math.min(0.95, it.y + dy));
+    afterElementChange(true);
+  };
+  if (btnUp) btnUp.addEventListener("click", nudge(0, -0.03));
+  if (btnDown) btnDown.addEventListener("click", nudge(0, 0.03));
+  if (btnLeft) btnLeft.addEventListener("click", nudge(-0.03, 0));
+  if (btnRight) btnRight.addEventListener("click", nudge(0.03, 0));
+  if (btnCenter) btnCenter.addEventListener("click", () => {
     if (!elementoSelecionado) return;
-    elementoSelecionado.scale = parseInt(sliderScale.value) / 100;
-    updateRangeProgress(sliderScale);
-    updateSliderLabels();
-    update2DTexture(activePiece);
+    elementoSelecionado.x = 0.5;
+    elementoSelecionado.y = 0.45;
+    afterElementChange(true);
   });
-}
-
-if (sliderRotation) {
-  sliderRotation.addEventListener("input", () => {
+  if (btnAumentar) btnAumentar.addEventListener("click", () => {
     if (!elementoSelecionado) return;
-    elementoSelecionado.rotation = parseInt(sliderRotation.value);
-    updateRangeProgress(sliderRotation);
-    updateSliderLabels();
-    update2DTexture(activePiece);
+    elementoSelecionado.scale = Math.min(4, (elementoSelecionado.scale || 1) + 0.15);
+    afterElementChange(true);
   });
-}
+  if (btnDiminuir) btnDiminuir.addEventListener("click", () => {
+    if (!elementoSelecionado) return;
+    elementoSelecionado.scale = Math.max(0.1, (elementoSelecionado.scale || 1) - 0.15);
+    afterElementChange(true);
+  });
+  if (btnRotacionar) btnRotacionar.addEventListener("click", () => {
+    if (!elementoSelecionado) return;
+    elementoSelecionado.rotation = ((elementoSelecionado.rotation || 0) + 15) % 360;
+    afterElementChange(true);
+  });
+  if (btnRemover) btnRemover.addEventListener("click", () => removeItem(elementoSelecionado));
+  if (btnDuplicar) btnDuplicar.addEventListener("click", () => duplicateItem(elementoSelecionado));
+  if (btnFrente) btnFrente.addEventListener("click", () => elementoSelecionado && moveLayer(elementoSelecionado, 1));
+  if (btnTras) btnTras.addEventListener("click", () => elementoSelecionado && moveLayer(elementoSelecionado, -1));
+  if (btnFlip) btnFlip.addEventListener("click", () => {
+    if (!elementoSelecionado) return;
+    elementoSelecionado.flipX = !elementoSelecionado.flipX;
+    syncPropsToElement(elementoSelecionado);
+    update2DTexture(activePiece);
+    commitHistory();
+  });
+  if (btnUndo) btnUndo.addEventListener("click", undo);
+  if (btnRedo) btnRedo.addEventListener("click", redo);
 
-// Desselecionar ao clicar na área livre
-document.addEventListener("click", (e) => {
-  if (!e.target.closest(".editor-print-element") && !e.target.closest("#controles-elemento-selecionado")) {
-    selecionarElemento(null, null);
-  }
-});
+  // Propriedades do elemento selecionado
+  const onSel = (fn, type) => () => {
+    const it = elementoSelecionado;
+    if (!it || (type && it.type !== type)) return;
+    fn(it);
+    update2DTexture(activePiece);
+  };
+  const bind = (el, ev, fn, commit) => {
+    if (!el) return;
+    el.addEventListener(ev, fn);
+    if (commit) el.addEventListener("change", commitHistory);
+  };
 
-// ---- Adicionar Texto ----
-if (btnAddText && textInput) {
-  btnAddText.addEventListener("click", () => {
+  bind(propTextContent, "input", onSel(it => { it.text = propTextContent.value; renderLayersList(); }, "text"), true);
+  bind(propFont, "change", onSel(it => { it.fontFamily = propFont.value; }, "text"), true);
+  bind(propColor, "input", onSel(it => { it.color = propColor.value; }, "text"), true);
+  bind(propFontSize, "input", onSel(it => {
+    it.fontSize = parseInt(propFontSize.value, 10);
+    if (propValFontSize) propValFontSize.textContent = it.fontSize;
+    updateRangeProgress(propFontSize);
+  }, "text"), true);
+  bind(propStrokeColor, "input", onSel(it => { it.strokeColor = propStrokeColor.value; }, "text"), true);
+  bind(propStrokeWidth, "input", onSel(it => {
+    it.strokeWidth = parseInt(propStrokeWidth.value, 10);
+    if (propValStrokeWidth) propValStrokeWidth.textContent = it.strokeWidth;
+    updateRangeProgress(propStrokeWidth);
+  }, "text"), true);
+  bind(propOpacity, "input", onSel(it => {
+    it.opacity = parseInt(propOpacity.value, 10) / 100;
+    if (propValOpacity) propValOpacity.textContent = `${propOpacity.value}%`;
+    updateRangeProgress(propOpacity);
+  }), true);
+  bind(propBold, "click", () => {
+    const it = elementoSelecionado;
+    if (!it || it.type !== "text") return;
+    it.bold = it.bold === false;
+    syncPropsToElement(it);
+    update2DTexture(activePiece);
+    commitHistory();
+  });
+  bind(propItalic, "click", () => {
+    const it = elementoSelecionado;
+    if (!it || it.type !== "text") return;
+    it.italic = !it.italic;
+    syncPropsToElement(it);
+    update2DTexture(activePiece);
+    commitHistory();
+  });
+
+  // Adicionar texto (botão ou Enter)
+  const inserirTexto = () => {
+    if (!textInput) return;
     const txt = textInput.value.trim();
     if (!txt) return;
-
-    const fonte = fonteSelect ? fonteSelect.value : "Outfit, sans-serif";
-    const corTexto = corTextoInput ? corTextoInput.value : "#f35e0e";
-
-    const novoItem = {
+    addItem({
       id: "item-" + Date.now(),
       type: "text",
       text: txt,
-      fontFamily: fonte,
+      fontFamily: fonteSelect ? fonteSelect.value : "Outfit, sans-serif",
       fontSize: 48,
-      color: corTexto,
+      color: corTextoInput ? corTextoInput.value : "#f35e0e",
+      bold: true,
+      italic: false,
+      strokeColor: "#000000",
+      strokeWidth: 0,
+      opacity: 1,
+      flipX: false,
+      hidden: false,
       x: 0.5,
       y: 0.4,
       scale: 1,
       rotation: 0
-    };
-
-    if (!elementosMap[activePiece]) elementosMap[activePiece] = [];
-    elementosMap[activePiece].push(novoItem);
-
-    update2DTexture(activePiece);
-    selecionarElemento(novoItem, null);
+    });
     textInput.value = "";
-  });
-}
+  };
+  if (btnAddText) btnAddText.addEventListener("click", inserirTexto);
+  if (textInput) textInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); inserirTexto(); } });
 
-// ---- Upload de Imagem (PNG / JPG) ----
-if (imgUpload) {
-  imgUpload.addEventListener("change", (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        const aspect = img.width / img.height;
-        const targetW = 240;
-        const targetH = targetW / aspect;
-
-        const novoItem = {
-          id: "img-" + Date.now(),
-          type: "image",
-          src: event.target.result,
-          imgElement: img,
-          width: targetW,
-          height: targetH,
-          x: 0.5,
-          y: 0.5,
-          scale: 1,
-          rotation: 0
+  // Upload de imagem
+  if (imgUpload) {
+    imgUpload.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const targetW = 240;
+          addItem({
+            id: "img-" + Date.now(),
+            type: "image",
+            name: (file.name || "Imagem").slice(0, 28),
+            src: event.target.result,
+            imgElement: img,
+            width: targetW,
+            height: targetW / (img.width / img.height),
+            opacity: 1,
+            flipX: false,
+            hidden: false,
+            x: 0.5,
+            y: 0.5,
+            scale: 1,
+            rotation: 0
+          });
+          imgUpload.value = ""; // permite reenviar o mesmo arquivo
         };
-
-        if (!elementosMap[activePiece]) elementosMap[activePiece] = [];
-        elementosMap[activePiece].push(novoItem);
-
-        update2DTexture(activePiece);
-        selecionarElemento(novoItem, null);
+        img.src = event.target.result;
       };
-      img.src = event.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-}
+      reader.readAsDataURL(file);
+    });
+  }
 
-// ---- Manipulação do Elemento Selecionado ----
-const MOVE_STEP = 0.03;
+  // Atalhos de teclado
+  document.addEventListener("keydown", (e) => {
+    const t = e.target;
+    const tag = t && t.tagName;
+    const isRange = tag === "INPUT" && t.type === "range";
+    const typing = tag === "TEXTAREA" || tag === "SELECT" ||
+      (tag === "INPUT" && !["range", "color", "checkbox", "button", "file"].includes(t.type));
+    if (typing) return;
 
-if (btnUp) {
-  btnUp.addEventListener("click", () => {
+    const mod = e.ctrlKey || e.metaKey;
+    const key = e.key.toLowerCase();
+    if (mod && key === "z") { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if (mod && key === "y") { e.preventDefault(); redo(); return; }
     if (!elementoSelecionado) return;
-    elementoSelecionado.y = Math.max(0.05, elementoSelecionado.y - MOVE_STEP);
-    afterElementChange();
+
+    if (mod && key === "d") { e.preventDefault(); duplicateItem(elementoSelecionado); return; }
+    if (key === "delete" || key === "backspace") { e.preventDefault(); removeItem(elementoSelecionado); return; }
+    if (key === "escape") { selecionarElemento(null); return; }
+
+    if (key.startsWith("arrow") && !isRange) {
+      e.preventDefault();
+      const step = e.shiftKey ? 0.02 : 0.005;
+      const it = elementoSelecionado;
+      if (key === "arrowleft") it.x = Math.max(0.05, it.x - step);
+      if (key === "arrowright") it.x = Math.min(0.95, it.x + step);
+      if (key === "arrowup") it.y = Math.max(0.05, it.y - step);
+      if (key === "arrowdown") it.y = Math.min(0.95, it.y + step);
+      afterElementChange(false);
+    }
   });
-}
-
-if (btnDown) {
-  btnDown.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.y = Math.min(0.95, elementoSelecionado.y + MOVE_STEP);
-    afterElementChange();
+  document.addEventListener("keyup", (e) => {
+    if (e.key.startsWith("Arrow") && elementoSelecionado) commitHistory();
   });
-}
 
-if (btnLeft) {
-  btnLeft.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.x = Math.max(0.05, elementoSelecionado.x - MOVE_STEP);
-    afterElementChange();
-  });
-}
-
-if (btnRight) {
-  btnRight.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.x = Math.min(0.95, elementoSelecionado.x + MOVE_STEP);
-    afterElementChange();
-  });
-}
-
-if (btnCenter) {
-  btnCenter.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.x = 0.5;
-    elementoSelecionado.y = 0.45;
-    afterElementChange();
-  });
-}
-
-if (btnAumentar) {
-  btnAumentar.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.scale = (elementoSelecionado.scale || 1) + 0.15;
-    afterElementChange();
-  });
-}
-
-if (btnDiminuir) {
-  btnDiminuir.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.scale = Math.max(0.3, (elementoSelecionado.scale || 1) - 0.15);
-    afterElementChange();
-  });
-}
-
-if (btnRotacionar) {
-  btnRotacionar.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    elementoSelecionado.rotation = ((elementoSelecionado.rotation || 0) + 15) % 360;
-    afterElementChange();
-  });
-}
-
-if (btnRemover) {
-  btnRemover.addEventListener("click", () => {
-    if (!elementoSelecionado) return;
-    const arr = elementosMap[activePiece] || [];
-    const idx = arr.indexOf(elementoSelecionado);
-    if (idx !== -1) arr.splice(idx, 1);
-
-    selecionarElemento(null, null);
-    update2DTexture(activePiece);
-  });
-}
-
-/** Shared helper: after any element property change, sync everything */
-function afterElementChange() {
-  syncSlidersToElement(elementoSelecionado);
-  update2DTexture(activePiece);
+  commitHistory();        // estado inicial (vazio) para o desfazer
+  renderLayersList();
 }
 
 /* =========================================================
