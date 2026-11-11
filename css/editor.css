@@ -542,7 +542,7 @@
 .flat-pattern-stage-container {
   position: relative;
   width: 100%;
-  height: 220px;
+  aspect-ratio: 1 / 1;      /* o molde é quadrado (canvas 1024x1024 + SVG 500x500); evita esticar */
   background: #0b1120;
   border: 1px dashed var(--cor-primaria);
   border-radius: var(--radius-md);
@@ -603,3 +603,85 @@
   }
 }
 
+
+/* =========================================
+   CAMADAS & PROPRIEDADES DO ELEMENTO
+   ========================================= */
+.layers-list {
+  list-style: none;
+  margin: 6px 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.layers-list__empty {
+  font-size: 12px;
+  color: var(--cor-texto-sec, #94a3b8);
+  padding: 8px;
+  text-align: center;
+  border: 1px dashed var(--cor-borda);
+  border-radius: 6px;
+}
+
+.layer-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border: 1px solid var(--cor-borda);
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.layer-row:hover { border-color: var(--cor-primaria); }
+
+.layer-row.is-selected {
+  border-color: var(--cor-primaria);
+  background: var(--cor-primaria-clara, #fff3ec);
+  box-shadow: 0 0 0 1px var(--cor-primaria);
+}
+
+.layer-row.is-hidden .layer-row__name { opacity: .45; text-decoration: line-through; }
+
+.layer-row__icon { width: 18px; text-align: center; flex: none; }
+
+.layer-row__name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-row__btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 2px 3px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.layer-row__btn:hover { background: rgba(0, 0, 0, .08); }
+
+.elem-props {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--cor-borda);
+}
+
+.flat-pattern-canvas { touch-action: none; }
+
+.elem-props button[aria-pressed="true"],
+#btn-elem-flip[aria-pressed="true"] {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #fff;
+}
