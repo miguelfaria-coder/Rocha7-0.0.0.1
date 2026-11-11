@@ -1039,17 +1039,15 @@ function removeCurrentModel() {
     tshirtGroup = null;
   }
 
-  if (decalFrontMesh) {
-    if (decalFrontMesh.geometry) decalFrontMesh.geometry.dispose();
-    if (decalFrontMesh.material) decalFrontMesh.material.dispose();
-    decalFrontMesh = null;
-  }
-
-  if (decalBackMesh) {
-    if (decalBackMesh.geometry) decalBackMesh.geometry.dispose();
-    if (decalBackMesh.material) decalBackMesh.material.dispose();
-    decalBackMesh = null;
-  }
+  // Decalques vivem na cena (não no grupo da roupa): remove e libera todos
+  ['decalFrontMesh', 'decalBackMesh', 'decalLeftSleeveMesh', 'decalRightSleeveMesh'].forEach(name => {
+    const m = { decalFrontMesh, decalBackMesh, decalLeftSleeveMesh, decalRightSleeveMesh }[name];
+    if (!m) return;
+    scene.remove(m);
+    if (m.geometry) m.geometry.dispose();
+    if (m.material) m.material.dispose();
+  });
+  decalFrontMesh = decalBackMesh = decalLeftSleeveMesh = decalRightSleeveMesh = null;
 
   tshirtMeshes.length = 0;
 }
@@ -1066,69 +1064,95 @@ if (modelSelectorGrid) {
   });
 }
 
-// ---- Position 3D Decal Quads attached to the T-Shirt Surface ----
-function setupDecalMeshes(size, scale) {
-  const decalWidth = 0.82;
-  const decalHeight = 1.05;
-  const planeGeo = new THREE.PlaneGeometry(decalWidth, decalHeight);
+// ---- Decalques 3D que acompanham a malha da roupa ----
+/**
+ * Cria um plano subdividido cujos vértices são "projetados" (raycast) sobre a malha da roupa,
+ * então a estampa cola no tecido em vez de ficar flutuando ou escondida dentro/atrás dele.
+ * axis 'z' = frente/costas (dir +1 / -1); axis 'x' = mangas (dir +1 = lado +x, -1 = lado -x).
+ * center, w, h estão em coordenadas de mundo.
+ */
+function createConformedDecal({ map, axis, dir, center, w, h, segX, segY }) {
+  const FAR = 8;       // distância de onde o raio parte
+  const LIFT = 0.008;  // folga acima do tecido para evitar z-fighting
+  const geo = new THREE.PlaneGeometry(w, h, segX, segY);
+  const pos = geo.attributes.position;
+  const ray = new THREE.Raycaster();
 
-  // Decalque da Frente
-  const frontMat = new THREE.MeshBasicMaterial({
-    map: textureFront,
+  const depthAt = (a, b) => {
+    const origin = axis === "z" ? new THREE.Vector3(a, b, dir * FAR) : new THREE.Vector3(dir * FAR, b, a);
+    const direction = axis === "z" ? new THREE.Vector3(0, 0, -dir) : new THREE.Vector3(-dir, 0, 0);
+    ray.set(origin, direction);
+    const hits = ray.intersectObjects(tshirtMeshes, false);
+    if (!hits.length) return null;
+    return axis === "z" ? hits[0].point.z : hits[0].point.x;
+  };
+
+  const hSign = axis === "z" ? dir : -dir;                 // sentido do eixo U do plano no mundo
+  const cH = axis === "z" ? center.x : center.z;           // centro horizontal
+  const fallback = axis === "z" ? center.z : center.x;     // profundidade de segurança
+  const centerHit = depthAt(cH, center.y);
+  const base = centerHit != null ? centerHit : fallback;
+
+  for (let i = 0; i < pos.count; i++) {
+    const a = cH + hSign * pos.getX(i);
+    const b = center.y + pos.getY(i);
+    let d = depthAt(a, b);
+    if (d == null || Math.abs(d - base) > 0.3) d = base;   // fora do tecido: mantém a profundidade central
+    const depth = d + dir * LIFT;
+    if (axis === "z") pos.setXYZ(i, a, b, depth);
+    else pos.setXYZ(i, depth, b, a);
+  }
+  pos.needsUpdate = true;
+  geo.computeBoundingSphere();
+  geo.computeBoundingBox();
+
+  const mat = new THREE.MeshBasicMaterial({
+    map,
     transparent: true,
     depthTest: true,
     depthWrite: false,
     polygonOffset: true,
-    polygonOffsetFactor: -1
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2
   });
-  decalFrontMesh = new THREE.Mesh(planeGeo, frontMat);
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.renderOrder = 2;
+  scene.add(mesh);
+  return mesh;
+}
+
+function setupDecalMeshes() {
+  if (!tshirtGroup) return;
+  tshirtGroup.updateMatrixWorld(true);
+  const s = tshirtGroup.scale.x || 1;
+  const toWorld = (x, y, z) => tshirtGroup.localToWorld(new THREE.Vector3(x, y, z));
+
   const decalCenterY = currentModelId === 'moletom' ? -0.18 : 0.02;
   const decalFrontZ = currentModelId === 'moletom' ? 0.35 : 0.38;
-  decalFrontMesh.position.set(0, decalCenterY, decalFrontZ);
-  if (tshirtGroup) tshirtGroup.add(decalFrontMesh);
-  printSurfaces.push({ mesh: decalFrontMesh, piece: 'front' });
 
-  // Decalque das Costas
-  const backMat = new THREE.MeshBasicMaterial({
-    map: textureBack,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false,
-    polygonOffset: true,
-    polygonOffsetFactor: -1
+  decalFrontMesh = createConformedDecal({
+    map: textureFront, axis: "z", dir: 1,
+    center: toWorld(0, decalCenterY, decalFrontZ), w: 0.82 * s, h: 1.05 * s, segX: 28, segY: 34
   });
-  decalBackMesh = new THREE.Mesh(planeGeo, backMat);
-  decalBackMesh.position.set(0, decalCenterY, -decalFrontZ);
-  decalBackMesh.rotation.y = Math.PI;
-  if (tshirtGroup) tshirtGroup.add(decalBackMesh);
-  printSurfaces.push({ mesh: decalBackMesh, piece: 'back' });
+  decalBackMesh = createConformedDecal({
+    map: textureBack, axis: "z", dir: -1,
+    center: toWorld(0, decalCenterY, -decalFrontZ), w: 0.82 * s, h: 1.05 * s, segX: 28, segY: 34
+  });
+  decalLeftSleeveMesh = createConformedDecal({
+    map: textureLeftSleeve, axis: "x", dir: 1,
+    center: toWorld(0.65, 0.1, 0.05), w: 0.4 * s, h: 0.4 * s, segX: 14, segY: 14
+  });
+  decalRightSleeveMesh = createConformedDecal({
+    map: textureRightSleeve, axis: "x", dir: -1,
+    center: toWorld(-0.65, 0.1, 0.05), w: 0.4 * s, h: 0.4 * s, segX: 14, segY: 14
+  });
 
-  // Decalque Manga Esquerda
-  const sleeveGeo = new THREE.PlaneGeometry(0.4, 0.4);
-  const leftSleeveMat = new THREE.MeshBasicMaterial({
-    map: textureLeftSleeve,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false
-  });
-  decalLeftSleeveMesh = new THREE.Mesh(sleeveGeo, leftSleeveMat);
-  decalLeftSleeveMesh.position.set(0.65, 0.1, 0.05);
-  decalLeftSleeveMesh.rotation.y = Math.PI / 2;
-  if (tshirtGroup) tshirtGroup.add(decalLeftSleeveMesh);
-  printSurfaces.push({ mesh: decalLeftSleeveMesh, piece: 'left_sleeve' });
-
-  // Decalque Manga Direita
-  const rightSleeveMat = new THREE.MeshBasicMaterial({
-    map: textureRightSleeve,
-    transparent: true,
-    depthTest: true,
-    depthWrite: false
-  });
-  decalRightSleeveMesh = new THREE.Mesh(sleeveGeo, rightSleeveMat);
-  decalRightSleeveMesh.position.set(-0.65, 0.1, 0.05);
-  decalRightSleeveMesh.rotation.y = -Math.PI / 2;
-  if (tshirtGroup) tshirtGroup.add(decalRightSleeveMesh);
-  printSurfaces.push({ mesh: decalRightSleeveMesh, piece: 'right_sleeve' });
+  printSurfaces.push(
+    { mesh: decalFrontMesh, piece: 'front' },
+    { mesh: decalBackMesh, piece: 'back' },
+    { mesh: decalLeftSleeveMesh, piece: 'left_sleeve' },
+    { mesh: decalRightSleeveMesh, piece: 'right_sleeve' }
+  );
 }
 
 // ---- Update 2D Texture for 3D Decals ----
