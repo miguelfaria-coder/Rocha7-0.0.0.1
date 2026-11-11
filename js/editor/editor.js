@@ -833,9 +833,11 @@ function loadModel(modelId) {
     const bounds = new THREE.Box3().setFromObject(garment);
     const center = bounds.getCenter(new THREE.Vector3());
     const size = bounds.getSize(new THREE.Vector3());
-    garment.position.sub(center);
     const scale = 2.1 / Math.max(size.x, size.y, size.z);
     garment.scale.setScalar(scale);
+    // posição = -centro * escala (a escala é aplicada em torno da origem do pai, então
+    // subtrair o centro sem escalar desloca o modelo para fora do enquadramento)
+    garment.position.copy(center).multiplyScalar(-scale);
 
     tshirtGroup = garment;
     tshirtMeshes.length = 0;
@@ -863,11 +865,11 @@ function loadModel(modelId) {
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
 
-    model.position.sub(center);
-
     const maxDimension = Math.max(size.x, size.y, size.z);
     const targetScale = 2.1 / maxDimension;
     model.scale.set(targetScale, targetScale, targetScale);
+    // posição = -centro * escala (ver nota no modelo procedural)
+    model.position.copy(center).multiplyScalar(-targetScale);
 
     // Mapear malhas da camiseta
     tshirtMeshes.length = 0;
@@ -1124,27 +1126,28 @@ function createConformedDecal({ map, axis, dir, center, w, h, segX, segY }) {
 function setupDecalMeshes() {
   if (!tshirtGroup) return;
   tshirtGroup.updateMatrixWorld(true);
-  const s = tshirtGroup.scale.x || 1;
-  const toWorld = (x, y, z) => tshirtGroup.localToWorld(new THREE.Vector3(x, y, z));
 
-  const decalCenterY = currentModelId === 'moletom' ? -0.18 : 0.02;
-  const decalFrontZ = currentModelId === 'moletom' ? 0.35 : 0.38;
+  // O modelo já está centrado na origem e normalizado (maior dimensão ≈ 2,1), então os decalques
+  // são definidos em coordenadas de mundo. A profundidade real vem do raycast na malha.
+  const decalCenterY = currentModelId === 'moletom' ? -0.2 : 0.02;
+  const decalFrontZ = 0.42;
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
 
   decalFrontMesh = createConformedDecal({
     map: textureFront, axis: "z", dir: 1,
-    center: toWorld(0, decalCenterY, decalFrontZ), w: 0.82 * s, h: 1.05 * s, segX: 28, segY: 34
+    center: V(0, decalCenterY, decalFrontZ), w: 0.9, h: 1.15, segX: 28, segY: 34
   });
   decalBackMesh = createConformedDecal({
     map: textureBack, axis: "z", dir: -1,
-    center: toWorld(0, decalCenterY, -decalFrontZ), w: 0.82 * s, h: 1.05 * s, segX: 28, segY: 34
+    center: V(0, decalCenterY, -decalFrontZ), w: 0.9, h: 1.15, segX: 28, segY: 34
   });
   decalLeftSleeveMesh = createConformedDecal({
     map: textureLeftSleeve, axis: "x", dir: 1,
-    center: toWorld(0.65, 0.1, 0.05), w: 0.4 * s, h: 0.4 * s, segX: 14, segY: 14
+    center: V(0.72, 0.11, 0.05), w: 0.44, h: 0.44, segX: 14, segY: 14
   });
   decalRightSleeveMesh = createConformedDecal({
     map: textureRightSleeve, axis: "x", dir: -1,
-    center: toWorld(-0.65, 0.1, 0.05), w: 0.4 * s, h: 0.4 * s, segX: 14, segY: 14
+    center: V(-0.72, 0.11, 0.05), w: 0.44, h: 0.44, segX: 14, segY: 14
   });
 
   printSurfaces.push(
