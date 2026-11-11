@@ -4,6 +4,7 @@ import { renderFooter } from '../components/footer.js';
 import { PRODUTOS, calcularPrecoUnitario } from '../data/products.js';
 import { cart } from '../cart.js';
 import { escapeHtml, formatBRL } from '../utils.js';
+import { createGarmentModel, createMugModel } from './realisticModels.js';
 
 const THREE = window.THREE;
 const OrbitControls = window.THREE?.OrbitControls || null;
@@ -455,71 +456,19 @@ function loadModel(modelId) {
   // Remove existing model from scene
   removeCurrentModel();
 
-  // A caneca é gerada diretamente no Three.js, sem depender de arquivo GLB.
+  // Caneca com corpo cerâmico, interior e alça lateral modelados em geometria própria.
   if (modelConfig.isMug) {
-    const mug = new THREE.Group();
-    const ceramic = new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.28,
-      metalness: 0.0,
-      side: THREE.DoubleSide
-    });
-    const printMaterial = new THREE.MeshStandardMaterial({
-      map: textureFront,
-      color: 0xffffff,
-      roughness: 0.32,
-      metalness: 0.0,
-      side: THREE.DoubleSide
-    });
-
-    // Corpo cilíndrico com abertura superior e a estampa mapeada ao redor.
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.68, 0.68, 1.35, 96, 1, true),
-      printMaterial
-    );
-    body.position.y = 0.05;
-    mug.add(body);
-
-    // Borda superior e fundo cerâmico.
-    const rim = new THREE.Mesh(
-      new THREE.TorusGeometry(0.675, 0.035, 12, 96),
-      ceramic
-    );
-    rim.rotation.x = Math.PI / 2;
-    rim.position.y = 0.725;
-    mug.add(rim);
-
-    const base = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.60, 0.60, 0.09, 64),
-      ceramic
-    );
-    base.position.y = -0.64;
-    mug.add(base);
-
-    // Alça lateral em formato de arco.
-    const handle = new THREE.Mesh(
-      new THREE.TorusGeometry(0.43, 0.105, 20, 64, Math.PI),
-      ceramic
-    );
-    handle.rotation.z = -Math.PI / 2;
-    handle.position.set(0.78, 0.02, 0);
-    mug.add(handle);
-
-    // Mantém referências usadas pelo restante do editor.
+    const mug = createMugModel(THREE, corTecidoAtual);
+    const printMaterial = mug.children[0].material;
+    printMaterial.map = textureFront;
+    printMaterial.needsUpdate = true;
     tshirtGroup = mug;
     tshirtMeshes.length = 0;
-    tshirtMeshes.push(body, rim, base, handle);
+    mug.traverse(child => { if (child.isMesh) tshirtMeshes.push(child); });
     scene.add(mug);
-
-    // Atualiza o canvas antes de usá-lo como textura do corpo cilíndrico.
     update2DTexture('front');
-
-    // Caneca usa apenas a área de estampa da frente.
     const pieceTabs = document.querySelectorAll('#piece-selector-tabs .piece-tab');
-    pieceTabs.forEach(tab => {
-      const isFront = tab.dataset.piece === 'front';
-      tab.style.display = isFront ? '' : 'none';
-    });
+    pieceTabs.forEach(tab => { tab.style.display = tab.dataset.piece === 'front' ? '' : 'none'; });
     const frontTabLabel = document.querySelector('#tab-piece-front span');
     if (frontTabLabel) frontTabLabel.textContent = '☕ Estampa';
     if (activePiece !== 'front') {
@@ -531,10 +480,7 @@ function loadModel(modelId) {
     if (svgOutlinePath) svgOutlinePath.setAttribute('d', 'M 145 95 L 355 95 L 340 420 Q 250 445 160 420 Z');
     if (svgPatternTitle) svgPatternTitle.textContent = 'MOLDE: CANECA';
     if (loadingOverlay) loadingOverlay.classList.add('hidden');
-    if (controls) {
-      controls.target.set(0, 0, 0);
-      controls.update();
-    }
+    if (controls) { controls.target.set(0, 0, 0); controls.update(); }
     return;
   }
 
@@ -550,7 +496,7 @@ function loadModel(modelId) {
 
   // Modelos de roupa criados diretamente em Three.js, sem placeholders.
   if (modelConfig.isProcedural) {
-    const garment = createGarmentModel(modelId);
+    const garment = createGarmentModel(THREE, modelId, corTecidoAtual);
     const bounds = new THREE.Box3().setFromObject(garment);
     const center = bounds.getCenter(new THREE.Vector3());
     const size = bounds.getSize(new THREE.Vector3());
@@ -638,87 +584,6 @@ function loadModel(modelId) {
 }
 
 
-// ---- Geometria procedural dos três modelos novos ----
-function createGarmentModel(modelId) {
-  const group = new THREE.Group();
-  const fabric = new THREE.MeshStandardMaterial({ color: new THREE.Color(corTecidoAtual), roughness: 0.84, side: THREE.DoubleSide });
-  const trim = new THREE.MeshStandardMaterial({ color: 0x263445, roughness: 0.72, side: THREE.DoubleSide });
-  const lightTrim = new THREE.MeshStandardMaterial({ color: 0xe9edf2, roughness: 0.55, side: THREE.DoubleSide });
-  const pocketMat = new THREE.MeshStandardMaterial({ color: 0xaeb6c0, roughness: 0.88, side: THREE.DoubleSide });
-
-  function polygon(points, depth, material, z = 0) {
-    const shape = new THREE.Shape();
-    shape.moveTo(points[0][0], points[0][1]);
-    points.slice(1).forEach(([x, y]) => shape.lineTo(x, y));
-    shape.closePath();
-    const geometry = new THREE.ExtrudeGeometry(shape, {
-      depth, bevelEnabled: true, bevelSegments: 2, steps: 1,
-      bevelSize: 0.018, bevelThickness: 0.018, curveSegments: 12
-    });
-    geometry.translate(0, 0, z - depth / 2);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.userData.fabricPart = material === fabric;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
-    return mesh;
-  }
-
-  function detailBox(width, height, depth, x, y, z, material) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
-    mesh.position.set(x, y, z);
-    mesh.userData.fabricPart = material === fabric;
-    group.add(mesh);
-    return mesh;
-  }
-
-  function button(x, y, z = 0.405) {
-    const mesh = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.025, 16), trim);
-    mesh.rotation.x = Math.PI / 2;
-    mesh.position.set(x, y, z);
-    mesh.userData.fabricPart = false;
-    group.add(mesh);
-  }
-
-  const torso = [
-    [-0.68,0.78],[-0.38,0.98],[-0.18,0.91],[-0.12,0.73],
-    [0.12,0.73],[0.18,0.91],[0.38,0.98],[0.68,0.78],
-    [0.91,0.38],[0.68,0.24],[0.52,0.48],[0.52,-1],
-    [-0.52,-1],[-0.52,0.48],[-0.68,0.24],[-0.91,0.38]
-  ];
-
-  if (modelId === 'polo' || modelId === 'football_jersey') {
-    polygon(torso, 0.72, fabric);
-    polygon([[-0.62,0.78],[-0.91,0.42],[-1.02,0.12],[-0.73,0.02],[-0.48,0.48]],0.68,fabric);
-    polygon([[0.62,0.78],[0.48,0.48],[0.73,0.02],[1.02,0.12],[0.91,0.42]],0.68,fabric);
-
-    if (modelId === 'polo') {
-      polygon([[-0.22,0.91],[0,0.77],[0.22,0.91],[0.13,0.62],[0,0.69],[-0.13,0.62]],0.76,trim);
-      polygon([[-0.10,0.70],[0.10,0.70],[0.085,0.27],[-0.085,0.27]],0.75,lightTrim,0.01);
-      [0.60,0.48,0.36].forEach(y => button(0,y));
-    } else {
-      polygon([[-0.24,0.91],[0,0.77],[0.24,0.91],[0.13,0.64],[0,0.69],[-0.13,0.64]],0.76,trim);
-      detailBox(0.035,0.48,0.025,0,0.39,0.395,lightTrim);
-      for (let i=0;i<12;i++) detailBox(0.055,0.012,0.028,0,0.59-i*0.036,0.414,trim);
-      detailBox(0.09,0.045,0.05,0,0.64,0.42,lightTrim);
-    }
-  } else if (modelId === 'moletom') {
-    polygon([
-      [-0.70,0.76],[-0.40,0.98],[-0.18,0.90],[-0.12,0.72],
-      [0.12,0.72],[0.18,0.90],[0.40,0.98],[0.70,0.76],
-      [0.88,0.34],[0.66,0.20],[0.52,0.46],[0.52,-1],
-      [-0.52,-1],[-0.52,0.46],[-0.66,0.20],[-0.88,0.34]
-    ],0.78,fabric);
-    polygon([[-0.58,0.78],[-0.86,0.42],[-0.95,-0.50],[-0.68,-0.58],[-0.47,0.42]],0.72,fabric);
-    polygon([[0.58,0.78],[0.47,0.42],[0.68,-0.58],[0.95,-0.50],[0.86,0.42]],0.72,fabric);
-    polygon([[-0.34,0.91],[-0.28,1.18],[-0.16,1.34],[0,1.39],[0.16,1.34],[0.28,1.18],[0.34,0.91],[0.20,0.78],[0,0.84],[-0.20,0.78]],0.60,trim,-0.28);
-    polygon([[-0.39,-0.28],[-0.32,-0.62],[-0.22,-0.70],[0.22,-0.70],[0.32,-0.62],[0.39,-0.28],[0.27,-0.20],[-0.27,-0.20]],0.035,pocketMat,0.405);
-    detailBox(0.024,0.46,0.024,-0.12,0.61,0.405,lightTrim);
-    detailBox(0.024,0.46,0.024,0.12,0.61,0.405,lightTrim);
-  }
-  return group;
-}
-
 function loadFromInlineData(gltfLoader, callback) {
   try {
     gltfLoader.parse(
@@ -772,6 +637,8 @@ function removeCurrentModel() {
     decalBackMesh = null;
   }
 
+  decalLeftSleeveMesh = null;
+  decalRightSleeveMesh = null;
   tshirtMeshes.length = 0;
 }
 
@@ -803,8 +670,8 @@ function setupDecalMeshes(size, scale) {
     polygonOffsetFactor: -1
   });
   decalFrontMesh = new THREE.Mesh(planeGeo, frontMat);
-  const decalCenterY = currentModelId === 'moletom' ? -0.18 : 0.02;
-  const decalFrontZ = currentModelId === 'moletom' ? 0.35 : 0.38;
+  const decalCenterY = currentModelId === 'moletom' ? -0.04 : 0.02;
+  const decalFrontZ = MODELOS[currentModelId]?.isProcedural ? 0.205 : 0.38;
   decalFrontMesh.position.set(0, decalCenterY, decalFrontZ);
   if (tshirtGroup) tshirtGroup.add(decalFrontMesh);
 
