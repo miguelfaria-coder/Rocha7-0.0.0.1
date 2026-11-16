@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "Rocha7",
+    "slug": "rocha7",
+    "scheme": "rocha7",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "backgroundColor": "#f8f6f2",
+      "resizeMode": "contain"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "br.com.rocha7.app"
+    },
+    "android": {
+      "package": "br.com.rocha7.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#f8f6f2"
+      }
+    }
+  }
+}
