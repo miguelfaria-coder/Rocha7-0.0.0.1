@@ -16,4 +16,4 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 })
 
-export const SITE_URL = 'https://rocha7.miguel-faria-497.workers.dev'
+export const SITE_URL = 'https://rocha7.devs.surf'
