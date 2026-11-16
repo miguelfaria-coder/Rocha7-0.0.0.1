@@ -19,6 +19,9 @@ const VIEW_INFO = {
 let activeView = "dashboard";
 let productCache = [];
 let categoryCache = [];
+let dashboardRange = getPresetRange("30days");
+let dashboardChartInstances = [];
+let dashboardAnalyticsRequest = 0;
 
 function normalizarCategoriaProduto(value) {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/babylook/g, 'baby look').replace(/[-_]+/g, ' ').trim();
@@ -44,6 +47,7 @@ async function initialize() {
   $$(".nav-item").forEach((button) => button.addEventListener("click", () => loadView(button.dataset.view)));
   $("#view-container").addEventListener("click", handleViewClick);
   $("#view-container").addEventListener("submit", handleViewSubmit);
+  $("#view-container").addEventListener("change", handleViewChange);
 
   const client = getSupabaseClient();
   if (!client) {
@@ -94,6 +98,7 @@ async function enterPanel(user) {
     renderDashboard(data);
     setActiveNavigation("dashboard");
     activeView = "dashboard";
+    await loadDashboardAnalytics();
     $("#view-title").textContent = VIEW_INFO.dashboard[0];
     $("#view-subtitle").textContent = VIEW_INFO.dashboard[1];
   } catch (error) {
@@ -145,6 +150,7 @@ async function loadView(view) {
     if (view === "dashboard") {
       data = await invokeAdmin("dashboard");
       renderDashboard(data);
+      await loadDashboardAnalytics();
     } else if (view === "orders") {
       data = await invokeAdmin("list_orders");
       renderOrders(data.orders || []);
@@ -196,22 +202,127 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(date);
 }
 
+function getISODate(date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+
+function getPresetRange(preset) {
+  const today = new Date();
+  const endDate = getISODate(today);
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  if (preset === "7days") start.setDate(start.getDate() - 6);
+  else if (preset === "30days") start.setDate(start.getDate() - 29);
+  else if (preset === "current_month") start.setDate(1);
+  return { preset, startDate: getISODate(start), endDate };
+}
+
 function renderDashboard(data) {
   const stats = data.stats || {};
+  dashboardChartInstances.forEach((chart) => chart.destroy());
+  dashboardChartInstances = [];
+  const range = dashboardRange || getPresetRange("30days");
+  const custom = range.preset === "custom";
+  let html = '<form id="dashboard-filter" class="analytics-filter"><div class="analytics-filter-fields">';
+  html += '<div><label for="dashboard-period">Período</label><select id="dashboard-period" name="preset"><option value="7days"' + (range.preset === "7days" ? " selected" : "") + '>Últimos 7 dias</option><option value="30days"' + (range.preset === "30days" ? " selected" : "") + '>Últimos 30 dias</option><option value="current_month"' + (range.preset === "current_month" ? " selected" : "") + '>Mês atual</option><option value="custom"' + (custom ? " selected" : "") + '>Período personalizado</option></select></div>';
+  html += '<div class="analytics-date-fields"' + (custom ? '' : ' hidden') + '><label for="dashboard-start">De</label><input id="dashboard-start" type="date" value="' + escapeHtml(range.startDate) + '"' + (custom ? ' required' : '') + '></div>';
+  html += '<div class="analytics-date-fields"' + (custom ? '' : ' hidden') + '><label for="dashboard-end">Até</label><input id="dashboard-end" type="date" value="' + escapeHtml(range.endDate) + '"' + (custom ? ' required' : '') + '></div>';
+  html += '<button class="button button-primary analytics-apply" type="submit">Aplicar período</button></div></form>';
+  html += '<div class="stats-grid analytics-stats">';
   const cards = [
-    ["Pedidos", stats.orders, "Total registrado"],
-    ["Aguardando", stats.pending, "Pedidos pendentes"],
-    ["Produtos", stats.products, "Itens no catálogo"],
-    ["Clientes", stats.customers, "Contas cadastradas"]
+    ['Faturamento', '<span id="analytics-revenue">—</span>', 'Exclui pendentes e cancelados'],
+    ['Ticket médio', '<span id="analytics-ticket">—</span>', 'Por pedido faturado'],
+    ['Pedidos no período', '<span id="analytics-orders">—</span>', 'Todos os status'],
+    ['Produtos', escapeHtml(stats.products == null ? '—' : stats.products), 'Itens no catálogo']
   ];
-  let html = '<div class="stats-grid">';
-  cards.forEach((card) => {
-    html += '<article class="stat-card"><span class="stat-label">' + escapeHtml(card[0]) + '</span><strong class="stat-value">' + escapeHtml(card[1] == null ? "—" : card[1]) + '</strong><span class="stat-hint">' + escapeHtml(card[2]) + '</span></article>';
-  });
-  html += '</div><section class="table-panel"><div class="table-head"><h2>Pedidos recentes</h2><button class="button small-button" type="button" data-go-view="orders">Ver todos os pedidos</button></div>';
-  html += renderRecentOrders(data.latestOrders || []);
-  html += '</section>';
+  cards.forEach((card) => { html += '<article class="stat-card"><span class="stat-label">' + card[0] + '</span><strong class="stat-value">' + card[1] + '</strong><span class="stat-hint">' + card[2] + '</span></article>'; });
+  html += '</div><div class="dashboard-charts" id="dashboard-charts"><div class="chart-panel"><div class="chart-panel-heading"><h2 id="orders-chart-title">Pedidos por dia</h2><span id="analytics-granularity">Carregando…</span></div><div class="chart-canvas-wrap"><canvas id="orders-chart" aria-label="Pedidos ao longo do período" role="img"></canvas></div></div>';
+  html += '<div class="chart-panel"><div class="chart-panel-heading"><h2>Status dos pedidos</h2></div><div class="chart-canvas-wrap chart-canvas-doughnut"><canvas id="status-chart" aria-label="Pedidos agrupados por status" role="img"></canvas></div></div>';
+  html += '<div class="chart-panel chart-panel-wide"><div class="chart-panel-heading"><h2>Produtos mais vendidos</h2><span>Unidades</span></div><div class="chart-canvas-wrap chart-canvas-products"><canvas id="products-chart" aria-label="Produtos mais vendidos no período" role="img"></canvas></div></div></div>';
+  html += '<section class="table-panel"><div class="table-head"><h2>Pedidos recentes</h2><button class="button small-button" type="button" data-go-view="orders">Ver todos os pedidos</button></div>' + renderRecentOrders(data.latestOrders || []) + '</section>';
   $("#view-container").innerHTML = html;
+}
+
+function handleViewChange(event) {
+  if (event.target.id !== "dashboard-period") return;
+  const preset = event.target.value;
+  $$(".analytics-date-fields").forEach((field) => { field.hidden = preset !== "custom"; });
+  const startInput = $("#dashboard-start");
+  const endInput = $("#dashboard-end");
+  startInput.required = preset === "custom";
+  endInput.required = preset === "custom";
+  if (preset !== "custom") {
+    dashboardRange = getPresetRange(preset);
+    startInput.value = dashboardRange.startDate;
+    endInput.value = dashboardRange.endDate;
+    loadDashboardAnalytics();
+  } else {
+    dashboardAnalyticsRequest++;
+  }
+}
+
+async function loadDashboardAnalytics(range = dashboardRange) {
+  const requestId = ++dashboardAnalyticsRequest;
+  const button = $("#dashboard-filter button[type=\"submit\"]");
+  if (button) { button.disabled = true; button.textContent = "Carregando…"; }
+  try {
+    const response = await invokeAdmin("dashboard_analytics", { range: { startDate: range.startDate, endDate: range.endDate } });
+    if (requestId !== dashboardAnalyticsRequest || activeView !== "dashboard") return;
+    dashboardRange = range;
+    renderDashboardAnalytics(response.analytics || {}, response.granularity || "day");
+    $("#app-notice").textContent = "";
+  } catch (error) {
+    if (requestId !== dashboardAnalyticsRequest) return;
+    $("#app-notice").textContent = error.message || "Não foi possível carregar os dados do período.";
+    renderDashboardAnalytics(null, "day");
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.textContent = "Aplicar período"; }
+  }
+}
+
+function renderDashboardAnalytics(analytics, granularity) {
+  dashboardChartInstances.forEach((chart) => chart.destroy());
+  dashboardChartInstances = [];
+  $("#analytics-revenue").textContent = analytics ? formatMoney(analytics.revenue) : "—";
+  $("#analytics-ticket").textContent = analytics ? formatMoney(analytics.averageTicket) : "—";
+  $("#analytics-orders").textContent = analytics ? String(analytics.totalOrders || 0) : "—";
+  if (!analytics) {
+    $("#dashboard-charts").innerHTML = '<div class="empty-state analytics-empty">Não foi possível carregar os gráficos para este período.</div>';
+    return;
+  }
+  $("#analytics-granularity").textContent = granularity === "month" ? "Por mês" : "Por dia";
+  $("#orders-chart-title").textContent = granularity === "month" ? "Pedidos por mês" : "Pedidos por dia";
+  if (!Number(analytics.totalOrders)) {
+    $("#dashboard-charts").innerHTML = '<div class="empty-state analytics-empty">Ainda não há pedidos neste período. Escolha outro intervalo para consultar os resultados.</div>';
+    return;
+  }
+  if (!window.Chart) {
+    $("#dashboard-charts").innerHTML = '<div class="empty-state analytics-empty">Não foi possível carregar os gráficos. Atualize a página para tentar novamente.</div>';
+    return;
+  }
+  const series = analytics.series || [];
+  const statuses = analytics.statuses || [];
+  const topProducts = analytics.topProducts || [];
+  dashboardChartInstances.push(new window.Chart($("#orders-chart"), {
+    type: "line",
+    data: { labels: series.map((item) => item.period), datasets: [{ label: "Pedidos", data: series.map((item) => Number(item.orders)), borderColor: "#b68a4c", backgroundColor: "#b68a4c22", fill: true, tension: 0.28, pointRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+  }));
+  const statusLabels = { pendente: "Pendente", confirmado: "Confirmado", em_producao: "Em produção", enviado: "Enviado", concluido: "Concluído", entregue: "Entregue", cancelado: "Cancelado" };
+  const statusColors = { pendente: "#d8a64e", confirmado: "#629678", em_producao: "#638eb2", enviado: "#7b73b2", concluido: "#3f795a", entregue: "#3f795a", cancelado: "#bd6a65" };
+  dashboardChartInstances.push(new window.Chart($("#status-chart"), {
+    type: "doughnut",
+    data: { labels: statuses.map((item) => statusLabels[item.status] || item.status), datasets: [{ data: statuses.map((item) => Number(item.orders)), backgroundColor: statuses.map((item) => statusColors[item.status] || "#999087"), borderWidth: 2, borderColor: "#fff" }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom", labels: { boxWidth: 10, padding: 12, font: { size: 10 } } } } }
+  }));
+  if (!topProducts.length) {
+    $(".chart-canvas-products").innerHTML = '<div class="empty-state">Ainda não há vendas confirmadas de produtos neste período.</div>';
+    return;
+  }
+  dashboardChartInstances.push(new window.Chart($("#products-chart"), {
+    type: "bar",
+    data: { labels: topProducts.map((item) => item.name), datasets: [{ label: "Unidades", data: topProducts.map((item) => Number(item.quantity)), backgroundColor: "#b68a4c", borderRadius: 5 }] },
+    options: { indexAxis: "y", responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { precision: 0 } } } }
+  }));
 }
 
 function renderRecentOrders(orders) {
@@ -265,26 +376,42 @@ function renderProducts() {
   html += '<div><label for="product-name">Nome</label><input name="nome" id="product-name" maxlength="160" required></div>';
   html += '<div><label for="product-category">Categoria</label><select name="categoria_id" id="product-category" required>' + categoryCache.map((category) => '<option value="' + escapeHtml(category.id) + '">' + escapeHtml(category.nome) + '</option>').join("") + '</select></div>';
   html += '<div><label for="product-price">Preço base (R$)</label><input name="preco_base" id="product-price" type="number" min="0" max="1000000" step="0.01" required></div>';
-  html += '<div><label for="product-image">Caminho da imagem</label><input name="imagem" id="product-image" maxlength="500" placeholder="assets/img/produtos/camiseta.png" required></div>';
+  html += '<div class="field-wide"><label for="product-image-file">Foto do produto (JPG, PNG ou WebP, até 5 MB)</label><input id="product-image-file" type="file" accept="image/jpeg,image/png,image/webp"><input name="imagem" id="product-image" type="hidden"><img id="product-image-preview" class="product-image-preview" alt="Prévia da foto do produto" hidden><small class="form-description">Escolha uma foto para enviar ou mantenha a foto atual ao editar.</small></div>';
   html += '<div><label for="product-style">Estilo</label><select name="estilo" id="product-style"><option value="normal">Normal</option><option value="polo">Polo</option></select></div>';
   html += '<div><label for="product-type">Personalização</label><select name="tipo_personalizacao" id="product-type"><option value="lisa">Lisa</option><option value="pronta">Estampa pronta</option><option value="personalizavel">Personalizável</option></select></div>';
   html += '<div class="field-wide"><label for="product-description">Descrição</label><textarea name="descricao" id="product-description" maxlength="4000"></textarea></div>';
   html += '<div class="field-wide"><label for="product-colors">Cores disponíveis (separadas por vírgula)</label><input name="cores" id="product-colors" maxlength="1000" placeholder="preto, branco, azul-marinho"></div>';
   html += '<div class="field-wide"><label class="checkbox-row"><input type="checkbox" name="destaque" id="product-featured"> Exibir entre os destaques</label></div>';
+  html += '<div class="field-wide"><label class="checkbox-row"><input type="checkbox" name="ativo" id="product-active" checked> Produto disponível para pedidos</label></div>';
   html += '<div class="field-wide form-actions"><button class="button button-primary" type="submit">Salvar produto</button><button class="button" id="product-cancel" type="button">Limpar formulário</button></div></form></section>';
   html += '<section class="table-panel"><div class="table-head"><h2>Catálogo</h2><span class="badge">' + productCache.length + ' produtos</span></div>';
   if (!productCache.length) html += '<div class="empty-state">Não há produtos cadastrados.</div>';
   else {
-    html += '<div class="table-scroll"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Preço base</th><th>Tipo</th><th>Destaque</th><th>Ação</th></tr></thead><tbody>';
+    html += '<div class="table-scroll"><table><thead><tr><th>Produto</th><th>Categoria</th><th>Preço base</th><th>Tipo</th><th>Status</th><th>Ação</th></tr></thead><tbody>';
     productCache.forEach((product) => {
       const category = categoryCache.find((entry) => entry.id === product.categoria_id);
-      html += '<tr><td><strong>' + escapeHtml(product.nome) + '</strong><span class="table-sub">' + escapeHtml(product.id) + '</span></td><td>' + escapeHtml(category ? category.nome : product.categoria_id) + '</td><td><strong>' + escapeHtml(formatMoney(product.preco_base)) + '</strong></td><td>' + escapeHtml(product.tipo_personalizacao) + '</td><td>' + (product.destaque ? "Sim" : "Não") + '</td><td><button class="button small-button" type="button" data-edit-product="' + escapeHtml(product.id) + '">Editar</button></td></tr>';
+      html += '<tr><td><strong>' + escapeHtml(product.nome) + '</strong><span class="table-sub">' + escapeHtml(product.id) + (product.destaque ? ' · Destaque' : '') + '</span></td><td>' + escapeHtml(category ? category.nome : product.categoria_id) + '</td><td><strong>' + escapeHtml(formatMoney(product.preco_base)) + '</strong></td><td>' + escapeHtml(product.tipo_personalizacao) + '</td><td>' + (product.ativo === false ? 'Indisponível' : 'Disponível') + '</td><td><div class="row-actions"><button class="button small-button" type="button" data-edit-product="' + escapeHtml(product.id) + '">Editar</button><button class="button small-button" type="button" data-toggle-product="' + escapeHtml(product.id) + '" data-active="' + (product.ativo === false ? 'false' : 'true') + '">' + (product.ativo === false ? 'Ativar' : 'Desativar') + '</button></div></td></tr>';
     });
     html += '</tbody></table></div>';
   }
   html += '</section>';
   $("#view-container").innerHTML = html;
   $("#product-form").addEventListener("reset", () => {});
+  $("#product-image-file").addEventListener("change", previewProductImage);
+}
+
+function previewProductImage(event) {
+  const file = event.target.files && event.target.files[0];
+  const preview = $("#product-image-preview");
+  if (!file) return;
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 5 * 1024 * 1024) {
+    event.target.value = "";
+    preview.hidden = true;
+    $("#app-notice").textContent = "Escolha uma imagem JPG, PNG ou WebP de até 5 MB.";
+    return;
+  }
+  preview.src = URL.createObjectURL(file);
+  preview.hidden = false;
 }
 
 function fillProductForm(product) {
@@ -293,11 +420,15 @@ function fillProductForm(product) {
   $("#product-category").value = product ? product.categoria_id : (categoryCache[0] ? categoryCache[0].id : "");
   $("#product-price").value = product ? Number(product.preco_base || 0).toFixed(2) : "";
   $("#product-image").value = product ? product.imagem || "" : "";
+  $("#product-image-file").value = "";
+  $("#product-image-preview").hidden = !product?.imagem;
+  if (product?.imagem) $("#product-image-preview").src = product.imagem;
   $("#product-style").value = product ? product.estilo || "normal" : "normal";
   $("#product-type").value = product ? product.tipo_personalizacao || "lisa" : "lisa";
   $("#product-description").value = product ? product.descricao || "" : "";
   $("#product-colors").value = product && Array.isArray(product.cores) ? product.cores.join(", ") : "";
   $("#product-featured").checked = !!(product && product.destaque);
+  $("#product-active").checked = !product || product.ativo !== false;
   $("#product-form-title").textContent = product ? "Editar produto" : "Cadastrar produto";
   $("#product-name").focus();
 }
@@ -328,6 +459,23 @@ async function handleViewClick(event) {
     if (product) fillProductForm(product);
     return;
   }
+  if (button.dataset.toggleProduct) {
+    const active = button.dataset.active === "true";
+    if (active && !window.confirm("Este produto ficará indisponível para novos pedidos. Os pedidos já feitos serão mantidos. Deseja continuar?")) return;
+    button.disabled = true;
+    try {
+      await invokeAdmin("set_product_active", { productId: button.dataset.toggleProduct, ativo: !active });
+      const data = await invokeAdmin("list_products");
+      categoryCache = (data.categories || []).filter(category => !normalizarCategoriaProduto(category.nome).includes('baby look'));
+      productCache = filtrarBabyLookProdutos(data.products || [], data.categories || []);
+      renderProducts();
+      $("#app-notice").textContent = active ? "Produto desativado. Os pedidos existentes foram mantidos." : "Produto ativado e disponível no catálogo.";
+    } catch (error) {
+      $("#app-notice").textContent = error.message || "Não foi possível alterar a disponibilidade.";
+      button.disabled = false;
+    }
+    return;
+  }
   if (button.id === "product-cancel") {
     fillProductForm(null);
     return;
@@ -352,6 +500,19 @@ async function handleViewClick(event) {
 }
 
 async function handleViewSubmit(event) {
+  if (event.target.id === "dashboard-filter") {
+    event.preventDefault();
+    const startDate = $("#dashboard-start").value;
+    const endDate = $("#dashboard-end").value;
+    if (!startDate || !endDate || startDate > endDate) {
+      $("#app-notice").textContent = "Confira as datas: a data inicial deve ser anterior ou igual à data final.";
+      return;
+    }
+    dashboardRange = { preset: "custom", startDate, endDate };
+    $("#app-notice").textContent = "";
+    await loadDashboardAnalytics(dashboardRange);
+    return;
+  }
   if (event.target.id !== "product-form") return;
   event.preventDefault();
   const form = event.target;
@@ -371,6 +532,7 @@ async function handleViewSubmit(event) {
     descricao: String(formData.get("descricao") || "").trim(),
     cores: colors,
     destaque: $("#product-featured").checked,
+    ativo: $("#product-active").checked,
     productId: String(formData.get("productId") || "")
   };
   if (normalizarCategoriaProduto(product.nome).includes('baby look')) {
@@ -380,6 +542,15 @@ async function handleViewSubmit(event) {
     return;
   }
   try {
+    const imageFile = $("#product-image-file").files[0];
+    if (imageFile) {
+      const upload = await invokeAdmin("create_product_upload", { file: { mimeType: imageFile.type, size: imageFile.size } });
+      const client = getSupabaseClient();
+      const { error: uploadError } = await client.storage.from(upload.bucket).uploadToSignedUrl(upload.path, upload.token, imageFile, { contentType: imageFile.type, upsert: false });
+      if (uploadError) throw uploadError;
+      product.imagem = client.storage.from(upload.bucket).getPublicUrl(upload.path).data.publicUrl;
+    }
+    if (!product.imagem) throw new Error("Escolha uma foto para o produto.");
     await invokeAdmin("save_product", { product });
     const response = await invokeAdmin("list_products");
     categoryCache = (response.categories || []).filter(category => !normalizarCategoriaProduto(category.nome).includes('baby look'));

@@ -179,6 +179,21 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  const requestedProductIds = [...new Set(validated.items.map((item) => item.id))];
+  const { data: availableProducts, error: productsError } = await admin
+    .from("produtos")
+    .select("id")
+    .in("id", requestedProductIds)
+    .eq("ativo", true);
+  if (productsError) {
+    console.error("Checkout product availability lookup failed:", productsError.message);
+    return json(503, { error: "Não foi possível validar a disponibilidade dos produtos. Tente novamente." });
+  }
+  const availableIds = new Set((availableProducts ?? []).map((product: { id: string }) => String(product.id)));
+  if (requestedProductIds.some((id) => !availableIds.has(id))) {
+    return json(400, { error: "Um ou mais produtos não estão mais disponíveis. Atualize o catálogo e tente novamente." });
+  }
+
   const { data, error } = await admin.rpc("rocha7_create_order_secure", {
     p_order: validated.order,
     p_items: validated.items,

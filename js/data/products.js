@@ -135,14 +135,15 @@ export function calcularPrecoUnitario(produto, quantidade = 1) {
 }
 
 /**
- * Busca a lista de produtos do Supabase (com fallback automático para a lista estática PRODUTOS)
+ * Busca o catálogo publicado no Supabase. Um catálogo vazio deve continuar vazio,
+ * sem ressuscitar produtos fixos que o administrador desativou ou alterou.
  */
 export async function carregarProdutos() {
   try {
     const supabaseModule = await import('../supabase.js');
     const produtosDb = await supabaseModule.buscarProdutosSupabase();
 
-    if (produtosDb && Array.isArray(produtosDb) && produtosDb.length > 0) {
+    if (produtosDb && Array.isArray(produtosDb)) {
       return produtosDb.map(p => ({
         id: p.id,
         nome: p.nome,
@@ -162,10 +163,9 @@ export async function carregarProdutos() {
       })).filter(produto => !ehProdutoBabyLook(produto));
     }
   } catch (err) {
-    console.warn("Usando catálogo estático devido à ausência de dados do Supabase:", err);
+    console.error("Não foi possível carregar o catálogo do Supabase:", err);
   }
-
-  return PRODUTOS.filter(produto => !ehProdutoBabyLook(produto));
+  return [];
 }
 
 if (typeof window !== 'undefined') {

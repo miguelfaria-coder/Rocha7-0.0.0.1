@@ -88,6 +88,34 @@ async function dashboard(db: ReturnType<typeof createClient>) {
   };
 }
 
+function parseDateOnly(value: unknown): string {
+  const input = text(value, 10);
+  const date = new Date(`${input}T00:00:00.000Z`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== input) {
+    throw new Error("Informe um período válido.");
+  }
+  return input;
+}
+
+async function dashboardAnalytics(db: ReturnType<typeof createClient>, raw: unknown) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Informe um período válido.");
+  const input = raw as Record<string, unknown>;
+  const start = parseDateOnly(input.startDate);
+  const end = parseDateOnly(input.endDate);
+  const startDay = Date.parse(`${start}T00:00:00.000Z`);
+  const endDay = Date.parse(`${end}T00:00:00.000Z`);
+  const dayCount = Math.floor((endDay - startDay) / 86400000);
+  if (dayCount < 0 || dayCount > 1826) throw new Error("O período deve ter até 5 anos e a data inicial não pode ser posterior à final.");
+  const granularity = dayCount > 62 ? "month" : "day";
+  const { data, error } = await db.rpc("rocha7_admin_dashboard_analytics", {
+    p_start: start,
+    p_end: end,
+    p_granularity: granularity,
+  });
+  if (error) throw error;
+  return { analytics: data || {}, granularity };
+}
+
 async function listOrders(db: ReturnType<typeof createClient>) {
   const { data: orders, error } = await db.from("pedidos").select(SELECTED_ORDER_FIELDS).order("criado_em", { ascending: false }).limit(100);
   if (error) throw error;
@@ -111,7 +139,7 @@ async function listOrders(db: ReturnType<typeof createClient>) {
 
 async function listProducts(db: ReturnType<typeof createClient>) {
   const [products, categories] = await Promise.all([
-    db.from("produtos").select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em").order("nome", { ascending: true }),
+    db.from("produtos").select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em,ativo").order("nome", { ascending: true }),
     db.from("categorias").select("id,nome,descricao").order("nome", { ascending: true }),
   ]);
   if (products.error) throw products.error;
@@ -149,6 +177,7 @@ async function saveProduct(db: ReturnType<typeof createClient>, raw: unknown) {
     ? input.cores.filter((value): value is string => typeof value === "string").map((value) => value.trim()).filter(Boolean).slice(0, 30).map((value) => value.slice(0, 40))
     : [];
   const featured = input.destaque === true;
+  const active = input.ativo !== false;
 
   if (name.length < 2) throw new Error("Informe um nome de produto válido.");
   if (!Number.isFinite(price) || price < 0 || price > 1000000) throw new Error("Informe um preço entre R$ 0 e R$ 1.000.000.");
@@ -171,21 +200,47 @@ async function saveProduct(db: ReturnType<typeof createClient>, raw: unknown) {
     imagem: image,
     descricao: description,
     destaque: featured,
+    ativo: active,
     cores,
     atualizado_em: new Date().toISOString(),
   };
   let query;
   if (productId) {
     query = await db.from("produtos").update(values).eq("id", productId)
-      .select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em").maybeSingle();
+      .select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em,ativo").maybeSingle();
   } else {
     const id = "prod-" + crypto.randomUUID();
     query = await db.from("produtos").insert({ ...values, id, avaliacao: 5 })
-      .select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em").single();
+      .select("id,nome,categoria_id,estilo,tipo_personalizacao,preco_base,imagem,descricao,destaque,avaliacao,cores,atualizado_em,ativo").single();
   }
   if (query.error) throw query.error;
   if (!query.data) throw new Error("O produto não foi encontrado ou não pôde ser salvo.");
   return { product: query.data };
+}
+
+async function createProductUpload(db: ReturnType<typeof createClient>, raw: unknown) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Arquivo de imagem inválido.");
+  const input = raw as Record<string, unknown>;
+  const mime = text(input.mimeType, 80).toLowerCase();
+  const size = Number(input.size);
+  const extensions: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+  if (!extensions[mime] || !Number.isInteger(size) || size < 1 || size > 5 * 1024 * 1024) {
+    throw new Error("Use uma imagem JPG, PNG ou WebP de até 5 MB.");
+  }
+  const path = `${crypto.randomUUID()}.${extensions[mime]}`;
+  const { data, error } = await db.storage.from("rocha7-products").createSignedUploadUrl(path);
+  if (error) throw error;
+  return { path: data.path, token: data.token, bucket: "rocha7-products" };
+}
+
+async function setProductActive(db: ReturnType<typeof createClient>, rawId: unknown, rawActive: unknown) {
+  const productId = text(rawId, 100);
+  if (!productId || typeof rawActive !== "boolean") throw new Error("Dados do produto inválidos.");
+  const { data, error } = await db.from("produtos").update({ ativo: rawActive, atualizado_em: new Date().toISOString() })
+    .eq("id", productId).select("id,ativo").maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Produto não encontrado.");
+  return { product: data };
 }
 
 async function listCustomers(db: ReturnType<typeof createClient>) {
@@ -244,6 +299,9 @@ Deno.serve(async (req: Request) => {
       case "dashboard":
         result = await dashboard(db);
         break;
+      case "dashboard_analytics":
+        result = await dashboardAnalytics(db, body.range);
+        break;
       case "list_orders":
         result = await listOrders(db);
         break;
@@ -256,6 +314,12 @@ Deno.serve(async (req: Request) => {
       case "save_product":
         result = await saveProduct(db, body.product);
         break;
+      case "create_product_upload":
+        result = await createProductUpload(db, body.file);
+        break;
+      case "set_product_active":
+        result = await setProductActive(db, body.productId, body.ativo);
+        break;
       case "list_customers":
         result = await listCustomers(db);
         break;
@@ -266,7 +330,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("Rocha7 admin operation failed:", error instanceof Error ? error.message : "unknown error");
     const safeMessage = error instanceof Error &&
-      ["Informe um nome de produto válido.", "Informe um preço entre R$ 0 e R$ 1.000.000.", "Informe um caminho de imagem válido.", "Estilo inválido.", "Tipo de personalização inválido.", "Selecione uma categoria existente.", "Identificador de pedido inválido.", "Status não permitido.", "Pedido não encontrado.", "Dados do produto inválidos."].includes(error.message)
+      ["Informe um nome de produto válido.", "Informe um preço entre R$ 0 e R$ 1.000.000.", "Informe um caminho de imagem válido.", "Estilo inválido.", "Tipo de personalização inválido.", "Selecione uma categoria existente.", "Identificador de pedido inválido.", "Status não permitido.", "Pedido não encontrado.", "Dados do produto inválidos.", "Arquivo de imagem inválido.", "Use uma imagem JPG, PNG ou WebP de até 5 MB.", "Produto não encontrado.", "Informe um período válido.", "O período deve ter até 5 anos e a data inicial não pode ser posterior à final."].includes(error.message)
       ? error.message
       : "Não foi possível concluir a operação administrativa.";
     return json(400, bad(safeMessage), origin);

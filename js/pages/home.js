@@ -120,21 +120,7 @@ function renderDestaques() {
   const container = document.getElementById("destaques-container");
   if (!container) return;
 
-  // Os 4 produtos exatos solicitados para o destaque da home:
-  // 1. Camiseta Algodão Liso Premium (prod-1)
-  // 2. Camisa Polo Tradicional Lisa (prod-4)
-  // 3. Moletom Canguru Liso Flanelado (prod-8)
-  // 4. Caneca Cerâmica Resina Premium (prod-10)
-  const idsDestaques = ["prod-1", "prod-4", "prod-8", "prod-10"];
-  let destaques = idsDestaques
-    .map((id) => (PRODUTOS || []).find((p) => String(p.id) === id))
-    .filter(Boolean);
-
-  // Fallback caso algum não seja localizado por ID
-  if (destaques.length < 4) {
-    const outros = (PRODUTOS || []).filter((p) => p.destaque && !destaques.includes(p));
-    destaques = [...destaques, ...outros].slice(0, 4);
-  }
+  const destaques = (PRODUTOS || []).filter((produto) => produto.destaque).slice(0, 4);
 
   if (!destaques.length) {
     container.innerHTML = `<p class="texto-sec">Catálogo em carregamento. Abra o <a href="catalogo.html">catálogo completo</a>.</p>`;

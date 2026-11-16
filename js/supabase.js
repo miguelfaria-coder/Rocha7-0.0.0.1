@@ -245,11 +245,12 @@ export async function buscarProdutosSupabase() {
   const { data, error } = await supabase
     .from('produtos')
     .select('*')
+    .eq('ativo', true)
     .order('nome');
 
   if (error) {
     console.error("Erro ao buscar produtos do Supabase:", error);
-    return null;
+    throw error;
   }
   const { data: categorias, error: categoriasError } = await supabase
     .from('categorias')
