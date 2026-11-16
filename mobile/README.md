@@ -1,15 +1,21 @@
 # Rocha7 para Android e iOS
 
-App em React Native com Expo, conectado ao mesmo projeto Supabase do site Rocha7.
+App em React Native com Expo, conectado ao mesmo projeto Supabase do site Rocha7. O site continua funcionando normalmente; este app oferece fluxos nativos próprios para os clientes.
 
-## O que já compartilha com o site
+## Fluxos disponíveis no app
 
-- Catálogo e preços consultados na tabela `produtos` do Supabase.
-- Login e cadastro usando o Auth do mesmo projeto; a mesma conta funciona nos dois clientes.
-- Sessão do app persistida no dispositivo.
-- Atalhos para abrir o produto, perfil, pedidos e checkout no site.
+- Home, catálogo, busca, categorias e destaques carregados do Supabase.
+- Tela nativa de produto com cor, modelagem, tamanho e quantidade.
+- Sacola persistente no dispositivo e pedido em lote com mínimo de 10 peças.
+- Checkout nativo, salvamento opcional de perfil e criação segura do pedido pelo backend existente.
+- Login por e-mail ou Google, cadastro, edição de perfil, consulta de pedidos e formulário de contato.
+- Pagamento aberto em uma aba segura do sistema; o retorno automático por deep link usa a página `pagamento-retorno.html` e a função Stripe atualizada neste repositório. Os dados de cartão são tratados pela Stripe.
 
-O checkout de pedidos continua no site neste primeiro corte. O app não cria pedidos por conta própria.
+O app tem um editor nativo simples para texto, cor e posição da estampa. A visualização 3D avançada do site ainda não foi portada; clientes podem descrever outros pedidos de arte pelo atendimento nativo.
+
+Para o retorno automático de pagamento funcionar em produção, publique também os arquivos atualizados do site e a função `rocha7-stripe-checkout`.
+
+No Supabase Auth, inclua `rocha7://auth-callback` na lista de URLs de redirecionamento permitidas para habilitar o login Google no app.
 
 ## Executar
 

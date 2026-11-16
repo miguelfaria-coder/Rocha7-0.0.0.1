@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#222222">
+  <title>Pagamento | Rocha7</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="css/reset.css">
+  <link rel="stylesheet" href="css/variables.css">
+  <link rel="stylesheet" href="css/global.css">
+  <style>
+    body { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f8f9fa; }
+    .return-card { width: min(100%, 520px); padding: 36px 28px; background: #fff; text-align: center; border: 1px solid #e5e5e5; box-shadow: 0 10px 25px rgba(0,0,0,.08); }
+    .return-brand { margin-bottom: 20px; color: #222; font: 800 28px/1.1 Outfit, sans-serif; }
+    .return-brand span { color: #f35e0e; }
+    .return-icon { width: 54px; height: 54px; margin: 0 auto 18px; display: grid; place-items: center; border-radius: 50%; color: white; background: #f35e0e; font-size: 28px; }
+    .return-message { margin: 12px 0 22px; color: #666; line-height: 1.6; }
+    .return-button { display: inline-flex; padding: 14px 20px; color: white; background: #222; text-decoration: none; font: 700 12px Outfit, sans-serif; letter-spacing: .08em; }
+  </style>
+</head>
+<body>
+  <main class="return-card">
+    <div class="return-brand">Rocha7<span>.</span></div>
+    <div class="return-icon" id="return-icon">…</div>
+    <h1 id="return-title">Conferindo seu pagamento</h1>
+    <p class="return-message" id="return-message">Estamos aguardando a confirmação segura da Stripe. Não feche esta página.</p>
+    <a class="return-button" id="return-button" href="index.html">VOLTAR PARA A ROCHA7</a>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0"></script>
+  <script type="module" src="js/payment-return.js"></script>
+</body>
+</html>

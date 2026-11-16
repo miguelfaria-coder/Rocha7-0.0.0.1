@@ -209,8 +209,14 @@ Deno.serve(async (req: Request) => {
 
   const params = new URLSearchParams();
   params.set("mode", "payment");
-  params.set("success_url", safeSiteOrigin(req) + "/pagamento-retorno.html?session_id={CHECKOUT_SESSION_ID}");
-  params.set("cancel_url", safeSiteOrigin(req) + "/pagamento-retorno.html?estado=cancelado&pedido_id=" + encodeURIComponent(pedido.id));
+  const returnPage = new URL("/pagamento-retorno.html", safeSiteOrigin(req));
+  if (body.returnToApp === true) returnPage.searchParams.set("return_to_app", "1");
+  const successPage = new URL(returnPage);
+  params.set("success_url", successPage.toString() + (successPage.search ? "&" : "?") + "session_id={CHECKOUT_SESSION_ID}");
+  const cancelPage = new URL(returnPage);
+  cancelPage.searchParams.set("estado", "cancelado");
+  cancelPage.searchParams.set("pedido_id", String(pedido.id));
+  params.set("cancel_url", cancelPage.toString());
   params.set("client_reference_id", pedido.id);
   params.set("customer_email", String(pedido.email_cliente));
   params.set("locale", "pt-BR");
