@@ -104,20 +104,66 @@ Deno.serve(async (req: Request) => {
 
   if (body.action === "status") {
     const sessionId = body.sessionId;
-    if (typeof sessionId !== "string" || !/^cs_(test|live)_[A-Za-z0-9]+$/.test(sessionId)) {
+    if (typeof sessionId !== "string" || !/^cs_test_[A-Za-z0-9]+$/.test(sessionId)) {
       return corsJson(req, 400, { error: "Identificador de pagamento inválido." });
     }
+    if (!STRIPE_SECRET_KEY.startsWith("sk_test_")) {
+      console.error("Stripe status lookup blocked: test secret key is not configured.");
+      return corsJson(req, 503, { error: "Consulta de pagamento indisponível." });
+    }
+
+    // The Checkout Session ID is a bearer reference from Stripe's return URL.
+    // Verify it with Stripe before using it to locate an order; never trust a
+    // client-supplied session ID as proof that an order was paid.
+    let stripeSession: Record<string, unknown>;
+    try {
+      stripeSession = await stripeRequest(
+        "/checkout/sessions/" + encodeURIComponent(sessionId),
+        "GET",
+      );
+    } catch {
+      console.warn("Stripe Checkout Session verification failed.");
+      return corsJson(req, 404, { error: "Pagamento não encontrado." });
+    }
+
+    const metadata = stripeSession.metadata && typeof stripeSession.metadata === "object"
+      ? stripeSession.metadata as Record<string, unknown>
+      : {};
+    const orderId = metadata.order_id;
+    const amountTotal = stripeSession.amount_total;
+    if (
+      stripeSession.id !== sessionId ||
+      stripeSession.livemode !== false ||
+      stripeSession.mode !== "payment" ||
+      stripeSession.currency !== "brl" ||
+      typeof orderId !== "string" ||
+      !isUuid(orderId) ||
+      typeof amountTotal !== "number" ||
+      !Number.isSafeInteger(amountTotal)
+    ) {
+      return corsJson(req, 404, { error: "Pagamento não encontrado." });
+    }
+
     const { data, error } = await admin
       .from("pedidos")
-      .select("id, pagamento_status, valor_total")
+      .select("id, pagamento_status, valor_total, stripe_checkout_session_id")
+      .eq("id", orderId)
       .eq("stripe_checkout_session_id", sessionId)
       .maybeSingle();
     if (error) {
       console.error("Payment status lookup failed:", error.code);
       return corsJson(req, 503, { error: "Não foi possível consultar o pagamento agora." });
     }
-    if (!data) return corsJson(req, 404, { error: "Pagamento não encontrado." });
-    return corsJson(req, 200, { pedidoId: data.id, status: data.pagamento_status, valorTotal: data.valor_total });
+    if (!data || Math.round(Number(data.valor_total) * 100) !== amountTotal) {
+      return corsJson(req, 404, { error: "Pagamento não encontrado." });
+    }
+
+    // The webhook remains the sole source of truth for the paid state.
+    return corsJson(req, 200, {
+      pedidoId: data.id,
+      status: data.pagamento_status,
+      valorTotal: data.valor_total,
+    });
   }
 
   if (body.action !== "create") return corsJson(req, 400, { error: "Ação inválida." });
