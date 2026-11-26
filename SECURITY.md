@@ -14,6 +14,10 @@
 - Cabeçalhos HTTP de segurança e a rota administrativa `/admin` são configurados pelos arquivos `_headers` e `_redirects` do Pages.
 - A implantação Vercel de fallback mantém suas exclusões em `.vercelignore`; no Cloudflare Pages, a exclusão é garantida pelo artefato `dist/`.
 
+## Scripts SQL legados
+- `supabase/sql/contato.sql` está descontinuado e falha intencionalmente para impedir que permissões antigas de INSERT/ALL sejam reabertas para `anon`/`authenticated`.
+- Mensagens de contato devem ser gravadas somente pela Edge Function `rocha7-contact-message`. Não conceda GRANT direto nem recrie políticas antigas de INSERT.
+
 ## Migrações de produção aplicadas
 - `20261020123748_rocha7_private_rate_limits_and_constraints`
 - `20261020124145_rocha7_production_lockdown`
@@ -29,6 +33,11 @@ O Security Advisor ainda relata que a proteção contra senhas vazadas está des
 4. Confirme o e-mail e restrinja Site URL/Redirect URLs aos domínios realmente utilizados.
 5. Configure MFA para todas as contas administrativas, valide a recuperação da conta e mantenha apenas os administradores necessários.
 6. Habilite CAPTCHA/anti-bot e revise limites de Auth quando disponível no plano.
+
+## Checkout Stripe — consulta de retorno
+- A ação `status` aceita somente IDs `cs_test_`, consulta a sessão diretamente na Stripe com chave de teste e valida `livemode`, moeda, modo, metadados do pedido, associação da sessão e valor total antes de responder.
+- O status `pago` continua dependendo exclusivamente do webhook validado; o retorno do navegador nunca confirma pagamento.
+- O ID de sessão é uma referência portadora presente na URL de retorno. A resposta deve permanecer limitada ao identificador do pedido, status e total, sem dados pessoais.
 
 ## Operação e privacidade
 - Nunca armazene número completo de cartão ou CVV na Rocha7; use um provedor de pagamentos adequado.
